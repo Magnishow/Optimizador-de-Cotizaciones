@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Optimizador de propuestas · Magnishow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --surface:#ffffff; --ink:#000000; --muted:#5c5c5c; --line:#d9d9d9; --panel:#f4f4f4;
+  --acc:#33ccff; --acc-ink:#000000;
+  --f-title:'Oswald', 'Arial Narrow', sans-serif;
+  --f-text:'Mriya Grotesk','Poppins', 'Helvetica Neue', Arial, sans-serif;
+  color-scheme: light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --surface:#000000; --ink:#ffffff; --muted:#a8a8a8; --line:#333333; --panel:#141414; color-scheme:dark; }
+}
+:root[data-theme="dark"]{ --surface:#000000; --ink:#ffffff; --muted:#a8a8a8; --line:#333333; --panel:#141414; color-scheme:dark; }
+html{scroll-padding-top:env(safe-area-inset-top,0px); height:100%}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0; background:var(--surface); color:var(--ink); font-family:var(--f-text); font-size:15px; line-height:1.5; min-height:100%}
+button,input,select,textarea{font:inherit; color:inherit}
+:focus-visible{outline:3px solid var(--acc); outline-offset:2px}
+
+/* ——— App chrome ——— */
+.bar{position:sticky; top:env(safe-area-inset-top,0px); z-index:20; background:#000; color:#fff; display:flex; align-items:center; gap:18px; padding:14px 24px; }
+body::before{content:""; position:fixed; inset:0 0 auto; height:env(safe-area-inset-top,0px); z-index:21; background:#000}
+.bar .wm{height:20px; display:block}
+.bar h1{font:500 18px/1 var(--f-title); text-transform:uppercase; letter-spacing:.02em; margin:0; padding-left:18px; border-left:1px solid #444}
+.bar .stripes{margin-left:auto; display:flex; gap:5px}
+.bar .stripes i{display:block; width:10px; height:22px; background:var(--acc-bar, var(--acc)); transform:skewX(-10deg)}
+
+.layout{display:grid; grid-template-columns: 400px 1fr; min-height:calc(100vh - 50px)}
+@media (max-width: 960px){ .layout{grid-template-columns:1fr} }
+.side{border-right:1px solid var(--line); padding:24px; display:flex; flex-direction:column; gap:26px}
+@media (max-width: 960px){ .side{border-right:0; border-bottom:1px solid var(--line)} }
+.step h2{font:600 22px/1.1 var(--f-title); text-transform:uppercase; margin:0 0 4px}
+.step p.help{margin:0 0 12px; color:var(--muted); font-size:13.5px}
+.execs{display:grid; grid-template-columns:repeat(2,1fr); gap:6px}
+.exec{display:flex; align-items:center; gap:10px; padding:9px 10px; border:1px solid var(--line); background:transparent; cursor:pointer; text-align:left}
+.exec .sw{width:18px; height:18px; flex:none; transform:skewX(-10deg); box-shadow:0 0 0 1px var(--line); position:relative}
+.exec .sw i{position:absolute; right:0; bottom:0; width:8px; height:8px}
+.exec[aria-pressed="true"]{border-color:var(--ink); box-shadow: inset 0 0 0 1px var(--ink)}
+.drop{display:block; border:1.5px dashed var(--line); padding:18px; cursor:pointer; text-align:center; color:var(--muted); font-size:14px}
+.drop:hover,.drop.over{border-color:var(--ink); color:var(--ink)}
+.drop strong{color:var(--ink); font-weight:600}
+.drop input{position:absolute; width:1px; height:1px; opacity:0; pointer-events:none}
+.filechip{display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:8px; padding:8px 10px; background:var(--panel); font-size:13px}
+.filechip button{border:0; background:none; cursor:pointer; text-decoration:underline; font-size:13px}
+details.paste{margin-top:8px; font-size:13px} details.paste summary{cursor:pointer; color:var(--muted)}
+textarea{width:100%; min-height:90px; border:1px solid var(--line); background:var(--surface); padding:10px; resize:vertical; font-size:13.5px}
+.thumbs{display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:8px}
+.thumbs figure{margin:0; position:relative; aspect-ratio:16/10; background:var(--panel) center/cover no-repeat}
+.thumbs button{position:absolute; top:4px; right:4px; border:0; background:#000; color:#fff; font-size:12px; padding:2px 7px; cursor:pointer}
+.check{display:flex; gap:10px; align-items:flex-start; padding:7px 0; font-size:13.5px; border-bottom:1px solid var(--line); cursor:pointer}
+.check:last-child{border-bottom:0}
+.check input{margin-top:4px; accent-color:var(--ink); flex:none}
+.pill{display:inline-block; font-size:11.5px; padding:1px 8px; background:var(--ink); color:var(--surface); margin-left:6px; vertical-align:2px}
+.go{border:0; box-shadow:inset 0 0 0 1.5px var(--ink); background:var(--acc); color:var(--acc-ink); font:600 20px/1 var(--f-title); text-transform:uppercase; padding:18px; cursor:pointer; clip-path:polygon(0 0,100% 0,calc(100% - 12px) 100%,0 100%)}
+.go[disabled]{opacity:.5; cursor:progress}
+.fields{display:grid; gap:8px} .fields label{display:grid; gap:3px; font-size:12.5px; color:var(--muted)} .fields input{border:1px solid var(--line); background:var(--surface); padding:9px 10px; font-size:14px; color:var(--ink)}
+.status{font-size:13.5px; color:var(--muted); min-height:20px}
+.status.err{color:var(--ink); font-weight:600}
+
+.main{padding:24px; min-width:0; display:flex; flex-direction:column; gap:20px}
+.toolbar{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.toolbar .note{color:var(--muted); font-size:13px; margin-right:auto}
+.btn{border:1px solid var(--ink); background:transparent; padding:10px 16px; cursor:pointer; font-weight:500; font-size:14px}
+.btn.solid{background:var(--ink); color:var(--surface)}
+.btn[disabled]{opacity:.4; cursor:not-allowed}
+.review{border:1px solid var(--line); padding:18px 20px}
+.review h3{font:600 18px/1.1 var(--f-title); text-transform:uppercase; margin:0 0 10px}
+.review ul{list-style:none; margin:0; padding:0; display:grid; gap:8px}
+.review li{display:grid; grid-template-columns:110px 1fr; gap:10px; font-size:14px}
+.review li b{font-weight:600}
+.empty{border:1.5px dashed var(--line); padding:48px 32px; text-align:left; max-width:640px}
+.empty h3{font:600 30px/1.05 var(--f-title); text-transform:uppercase; margin:0 0 10px}
+.empty p{color:var(--muted); margin:0}
+.pages{display:flex; flex-direction:column; align-items:center; gap:22px; overflow-x:auto}
+.pagewrap{position:relative; flex:none}
+.pagewrap .page{transform-origin:top left; position:absolute; top:0; left:0; box-shadow:0 0 0 1px var(--line)}
+
+/* ——— Proposal pages (always white paper, letter 816×1056) ——— */
+.page{width:816px; height:1056px; background:#fff; color:#000; position:relative; overflow:hidden; font-family:var(--f-text); font-size:13px; line-height:1.5}
+.page [contenteditable]:hover{outline:1px dashed #9a9a9a}
+.page .pad{position:absolute; inset:56px 56px 72px}
+.page .foot{position:absolute; left:56px; right:56px; bottom:30px; display:flex; justify-content:space-between; align-items:flex-end; font-size:10.5px; color:#555}
+.page .foot img{height:13px; display:block}
+.page .corner{position:absolute; top:56px; right:56px; height:46px; z-index:1}
+.sec{position:relative; padding-left:24px; margin-bottom:24px}
+.sec::before{content:""; position:absolute; left:0; top:4px; bottom:4px; width:10px; background:var(--pacc); clip-path:polygon(0 8%,100% 0,100% 100%,0 100%)}
+.sec h2{font:700 46px/0.95 var(--f-title); text-transform:uppercase; margin:0}
+.sec .sub{font:300 24px/1.1 var(--f-text); margin:2px 0 0}
+.lead{font-size:14px; line-height:1.6; max-width:640px; margin:0 0 22px}
+
+/* cover */
+.cv-top{position:absolute; left:0; right:0; top:0; height:600px; background:var(--pacc); overflow:hidden}
+.cv-top .giant{position:absolute; left:56px; top:56px; height:488px}
+.cv-top .wm{position:absolute; right:56px; top:56px; height:22px}
+.cv-title{position:absolute; right:56px; bottom:56px; text-align:right; color:var(--pink-safe); max-width:430px}
+.cv-title .t1{font:700 88px/0.9 var(--f-title); text-transform:uppercase; display:block; white-space:nowrap}
+.cv-title .t2{font:300 34px/1.1 var(--f-text); display:block; margin-top:6px}
+.cv-body{position:absolute; left:56px; right:56px; top:640px}
+.cv-client{font:700 34px/1 var(--f-title); text-transform:uppercase; margin:0 0 6px}
+.cv-event{font-size:14px; color:#333; margin:0 0 18px}
+.cv-intro{font-size:13.5px; line-height:1.6; margin:0 0 24px; max-width:640px}
+.facts{display:grid; grid-template-columns:repeat(4,1fr); gap:16px}
+.fact{border-top:6px solid var(--pacc); padding-top:8px}
+.fact span{display:block; font-size:11px; color:#555}
+.fact b{display:block; font:600 20px/1.15 var(--f-title); text-transform:uppercase}
+
+/* solution */
+.render{position:relative; background:#111; height:350px; margin-bottom:8px; overflow:hidden}
+.render img{width:100%; height:100%; object-fit:cover; display:block}
+.render.sketch img{object-fit:contain; background:#000}
+.render-row{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px}
+.render-row .render{height:170px; margin:0}
+.gallery{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.gallery .render{height:186px; margin:0}
+.rcap{font-size:10.5px; color:#555; margin:0 0 22px}
+.incl{display:grid; grid-template-columns:1fr 1fr; gap:14px 28px; margin:0; padding:0; list-style:none}
+.incl li{padding-left:20px; position:relative}
+.incl li::before{content:""; position:absolute; left:0; top:6px; width:10px; height:10px; background:var(--pacc); transform:skewX(-10deg)}
+.incl b{display:block; font-weight:600; font-size:13.5px}
+.incl span{font-size:12.5px; color:#333}
+.page .tag{display:inline-block; background:#000; color:#fff; font:500 10px/1 var(--f-title); text-transform:uppercase; letter-spacing:.06em; padding:3px 6px; margin-left:6px; vertical-align:2px}
+.box{border-left:6px solid #000; background:#f2f2f2; padding:12px 16px; font-size:12.5px; margin-top:18px}
+
+/* investment */
+table.inv{width:100%; border-collapse:collapse; font-size:12px}
+table.inv th{background:#000; color:#fff; font:500 12px/1 var(--f-title); text-transform:uppercase; letter-spacing:.04em; text-align:left; padding:10px 10px}
+table.inv th.r, table.inv td.r{text-align:right; white-space:nowrap}
+table.inv th.c, table.inv td.c{text-align:center; white-space:nowrap}
+table.inv td{padding:8px 10px; border-bottom:1px solid #e1e1e1; vertical-align:top}
+table.inv tr.grp td{background:#f2f2f2; font-weight:600; border-bottom:0; border-top:10px solid #fff}
+table.inv tr.grp td:first-child{box-shadow: inset 6px 0 0 var(--pacc)}
+table.inv tr.sum td{border-bottom:0; padding:6px 10px}
+table.inv tr.sum.first td{border-top:2px solid #000; padding-top:12px}
+.totalbox{display:flex; justify-content:space-between; align-items:flex-end; background:#000; color:#fff; padding:18px 22px; margin-top:12px; border-left:12px solid var(--pacc)}
+.totalbox span{font-size:12px}
+.totalbox b{font:700 40px/1 var(--f-title)}
+.dist{margin-top:26px}
+.dist .barx{display:flex; height:18px}
+.dist .barx i{display:block; height:100%}
+.dist .legend{display:flex; flex-wrap:wrap; gap:6px 22px; margin-top:8px; font-size:11.5px}
+.dist .legend b{font-weight:600}
+.dist .legend s{display:inline-block; width:10px; height:10px; margin-right:6px; text-decoration:none; vertical-align:-1px}
+.dist h4, .cond h4, .benef h4{font:600 15px/1 var(--f-title); text-transform:uppercase; margin:0 0 10px}
+.benef{margin-top:26px}
+.benef ul{list-style:none; margin:0; padding:0; display:grid; grid-template-columns:1fr 1fr; gap:12px 28px}
+.benef li{border-top:4px solid var(--pacc); padding-top:8px}
+.benef b{display:block; font-weight:600; font-size:12.5px}
+.benef span{display:block; font-size:11.5px; color:#333; line-height:1.45}
+
+/* conditions */
+table.cal{width:100%; border-collapse:collapse; font-size:12px; margin-bottom:24px}
+table.cal td{padding:8px 0; border-bottom:1px solid #e1e1e1; vertical-align:top}
+table.cal td:first-child{font-weight:600; width:32%}
+ol.clauses{margin:0; padding:0; list-style:none; counter-reset:c; columns:1}
+ol.clauses li{counter-increment:c; position:relative; padding:6px 0 6px 30px; border-bottom:1px solid #e9e9e9; font-size:10.5px; line-height:1.45}
+ol.clauses li b{font-weight:600}
+ol.clauses li::before{content:counter(c,decimal-leading-zero); position:absolute; left:0; top:6px; font:600 11px/1.45 var(--f-title); color:#000}
+.sign{display:grid; grid-template-columns:1fr 1fr; gap:40px; margin:6px 0 10px; font-size:11.5px}
+.sign i{display:block; height:44px; border-bottom:1px solid #000; margin-bottom:6px}
+.sign span{color:#555}
+.signnote{font-size:10.5px; color:#555; margin:0 0 22px}
+
+/* closing */
+.needs{display:grid; grid-template-columns:1fr 1fr; gap:8px 28px; list-style:none; margin:0 0 18px; padding:0; counter-reset:n}
+.needs li{counter-increment:n; position:relative; padding-left:38px; font-size:13px; min-height:28px}
+.needs li::before{content:counter(n); position:absolute; left:0; top:-4px; font:700 26px/1 var(--f-title); color:#000}
+.contact{font-size:13px; line-height:1.7}
+.contact b{font:600 20px/1.2 var(--f-title); text-transform:uppercase; display:block}
+.cl-band{position:absolute; left:0; right:0; bottom:0; height:250px; background:var(--pacc); overflow:hidden}
+.cl-band .giant{position:absolute; right:56px; top:28px; height:194px}
+.cl-band .line{position:absolute; left:56px; bottom:44px; color:var(--pink-safe); font:700 54px/0.92 var(--f-title); text-transform:uppercase}
+.cl-band .line small{display:block; font:300 26px/1.1 var(--f-text); text-transform:none; margin-top:6px}
+.cl-band .wm{position:absolute; left:56px; top:32px; height:18px}
+table.cal{margin-bottom:18px}
+
+@media print{
+  @page{size:letter; margin:0}
+  body{background:#fff}
+  .bar,.side,.toolbar,.review,.empty{display:none!important}
+  .layout{display:block} .main{padding:0; gap:0}
+  .pages{gap:0; overflow:visible}
+  .pagewrap{width:auto!important; height:auto!important; break-after:page}
+  .pagewrap .page{position:relative; transform:none!important; box-shadow:none}
+}
+@media (prefers-reduced-motion: reduce){ *{transition:none!important; animation:none!important} }
+</style>
+</head>
+<body>
+<header class="bar">
+  <img class="wm" id="barWordmark" alt="Magnishow">
+  <h1>Optimizador de propuestas</h1>
+  <div class="stripes" aria-hidden="true"><i></i><i></i><i></i></div>
+</header>
+
+<div class="layout">
+<aside class="side">
+  <section class="step">
+    <h2>Ejecutivo</h2>
+    <p class="help">Define el color de la plantilla. El nombre no aparece en la propuesta.</p>
+    <div class="execs" id="execs"></div>
+  </section>
+
+  <section class="step">
+    <h2>Cotización original</h2>
+    <p class="help">El PDF de Rentman. De aquí salen rubros, montos, fechas y recinto.</p>
+    <label class="drop" id="dropQuote"><input type="file" id="fileQuote" accept=".pdf,.xlsx,.xlsm,.xls,.csv,.ods,.docx,application/pdf"><strong>Sube la cotización</strong> (PDF, Excel o Word) o arrástrala aquí</label>
+    <div id="quoteChip"></div>
+    <details class="paste"><summary>¿No lee el PDF? Pega el texto de la cotización</summary><textarea id="quotePaste" placeholder="Pega aquí el contenido de la cotización"></textarea></details>
+    <label class="check" style="margin-top:8px"><input type="checkbox" id="desglose"><span>Mostrar el monto de cada ítem (desglosado). Sin marcar, la inversión sale solo por grupos.</span></label>
+  </section>
+
+  <section class="step">
+    <h2>Renders</h2>
+    <p class="help">Opcional, hasta 10 imágenes. Las 3 primeras van en Solución y el resto en una página de galería. Sin renders, se arma un bosquejo referencial a partir de los equipos cotizados.</p>
+    <label class="drop" id="dropRenders"><input type="file" id="fileRenders" accept="image/*" multiple><strong>Sube imágenes</strong> o arrástralas aquí</label>
+    <div class="thumbs" id="thumbs"></div>
+  </section>
+
+  <section class="step">
+    <h2>Cláusulas</h2>
+    <p class="help" id="clausesHelp">Condiciones generales de servicio de Magnishow. Todas vienen marcadas; desmarca solo las que no apliquen.</p>
+    <div id="clauses"></div>
+    <details class="paste"><summary>Agregar cláusulas propias (una por línea)</summary><textarea id="customClauses" placeholder="Ej.: El cliente gestiona los permisos del recinto."></textarea></details>
+  </section>
+
+  <section class="step">
+    <h2>Datos del evento</h2>
+    <p class="help">Se llenan solos al subir la cotización. Corrige lo que haga falta.</p>
+    <div class="fields">
+      <label>Cliente<input id="fCliente" placeholder="Nombre del cliente"></label>
+      <label>Evento<input id="fEvento" placeholder="Nombre del evento"></label>
+      <label>Recinto<input id="fRecinto" placeholder="Lugar del evento"></label>
+      <label>Fecha del evento<input id="fFecha" type="date"></label>
+    </div>
+  </section>
+
+  <section class="step">
+    <h2>Consideraciones</h2>
+    <p class="help">Opcional. Sale en la propuesta: ajustes de alcance, cortesías, lo que pidió el cliente.</p>
+    <textarea id="context" placeholder="Ej.: A solicitud del cliente, la zona de fotos queda fuera de esta propuesta."></textarea>
+  </section>
+
+  <button class="go" id="go">Generar propuesta</button>
+  <div class="status" id="status" role="status" aria-live="polite"></div>
+</aside>
+
+<main class="main">
+  <div class="toolbar" id="toolbar" hidden>
+    <span class="note">Haz clic sobre cualquier texto de la propuesta para corregirlo antes de descargar.</span>
+    <button class="btn" id="btnPrint">Imprimir</button>
+    <button class="btn solid" id="btnPdf">Descargar PDF</button>
+  </div>
+  <section class="review" id="review" hidden><h3>Revisión antes de enviar</h3><ul id="reviewList"></ul></section>
+  <div class="empty" id="empty">
+    <h3>Sube una cotización para empezar</h3>
+    <p>La propuesta se arma con la plantilla del color del ejecutivo, el logo de Magnishow y las cláusulas que marques. Antes de descargar verás una revisión con datos faltantes, riesgos e inconsistencias.</p>
+  </div>
+  <div class="pages" id="pages"></div>
+</main>
+</div>
+
+<script>
+const LOGO={
+ mono:{vb:'938 237 276 557',p:["M 948.046875 597.160156 L 948.046875 246.503906 L 1037.226562 246.503906 L 1075.753906 450.40625 L 1117.3125 246.503906 L 1203.460938 246.503906 L 1203.460938 597.160156 L 1148.480469 597.160156 L 1141.988281 363.824219 L 1101.296875 597.160156 L 1052.378906 597.160156 L 1009.085938 362.09375 L 1003.890625 597.160156 Z M 948.046875 597.160156 ", "M 1204 651.117188 L 1052.808594 649.839844 C 1049.773438 649.839844 1049.070312 654.085938 1051.945312 655.0625 L 1198.375 690.933594 C 1201.769531 692.277344 1204 695.554688 1204 699.207031 L 1204 731 C 1204 735.910156 1200.019531 739.890625 1195.105469 739.890625 L 947.507812 784.097656 L 947.507812 737.234375 L 1086.894531 714.699219 C 1089.613281 714.222656 1089.929688 710.449219 1087.324219 709.53125 L 956.421875 678.054688 C 956.410156 678.050781 956.398438 678.042969 956.386719 678.039062 C 953.101562 676.636719 947.507812 673.421875 947.507812 669.863281 L 947.507812 612.175781 C 947.507812 606.925781 951.765625 602.667969 957.015625 602.667969 L 1204 602.667969 Z M 1204 651.117188 "]},
+ word:{vb:'1268 489 541 102',magni:["M 1278 579.957031 L 1279.382812 499.945312 L 1298.347656 499.945312 L 1307.140625 546.472656 L 1316.625 499.945312 L 1334.898438 499.945312 L 1336.28125 579.957031 L 1323.734375 579.957031 L 1322.253906 526.714844 L 1312.96875 579.957031 L 1301.808594 579.957031 L 1291.929688 526.320312 L 1290.742188 579.957031 Z M 1278 579.957031 ", "M 1365.027344 552.496094 L 1373.523438 552.496094 L 1369.273438 521.28125 Z M 1343.984375 579.957031 L 1359.101562 499.945312 L 1379.253906 499.945312 L 1394.167969 579.957031 L 1377.867188 579.957031 L 1375.203125 563.066406 L 1363.445312 563.066406 L 1360.679688 579.957031 Z M 1343.984375 579.957031 ", "M 1421.828125 581.144531 C 1416.296875 581.144531 1411.933594 579.988281 1408.738281 577.6875 C 1405.542969 575.382812 1403.273438 572.136719 1401.921875 567.957031 C 1400.574219 563.773438 1399.898438 558.949219 1399.898438 553.484375 L 1399.898438 526.613281 C 1399.898438 520.953125 1400.621094 516.046875 1402.070312 511.894531 C 1403.519531 507.75 1406.007812 504.535156 1409.53125 502.265625 C 1413.050781 499.992188 1417.84375 498.855469 1423.902344 498.855469 C 1429.828125 498.855469 1434.488281 499.84375 1437.878906 501.820312 C 1441.269531 503.796875 1443.691406 506.53125 1445.140625 510.019531 C 1446.589844 513.511719 1447.3125 517.59375 1447.3125 522.269531 L 1447.3125 527.40625 L 1430.027344 527.40625 L 1430.027344 520.886719 C 1430.027344 519.175781 1429.910156 517.59375 1429.679688 516.144531 C 1429.449219 514.695312 1428.921875 513.527344 1428.101562 512.636719 C 1427.277344 511.75 1425.941406 511.304688 1424.101562 511.304688 C 1422.1875 511.304688 1420.804688 511.8125 1419.949219 512.835938 C 1419.09375 513.855469 1418.550781 515.125 1418.320312 516.636719 C 1418.089844 518.152344 1417.976562 519.734375 1417.976562 521.378906 L 1417.976562 558.421875 C 1417.976562 560.203125 1418.15625 561.863281 1418.519531 563.410156 C 1418.878906 564.960938 1419.539062 566.210938 1420.492188 567.164062 C 1421.449219 568.121094 1422.816406 568.597656 1424.59375 568.597656 C 1426.4375 568.597656 1427.855469 568.105469 1428.839844 567.117188 C 1429.828125 566.128906 1430.519531 564.84375 1430.914062 563.265625 C 1431.3125 561.683594 1431.507812 560.003906 1431.507812 558.226562 L 1431.507812 548.839844 L 1424.296875 548.839844 L 1424.296875 538.46875 L 1447.414062 538.46875 L 1447.414062 579.957031 L 1435.757812 579.957031 L 1434.769531 573.339844 C 1433.714844 575.578125 1432.164062 577.4375 1430.125 578.921875 C 1428.082031 580.402344 1425.316406 581.144531 1421.828125 581.144531 ", "M 1458.476562 579.957031 L 1458.476562 499.945312 L 1470.921875 499.945312 L 1487.320312 538.46875 L 1487.320312 499.945312 L 1501.9375 499.945312 L 1501.9375 579.957031 L 1489.988281 579.957031 L 1473.589844 538.46875 L 1473.589844 579.957031 Z M 1458.476562 579.957031 ", "M 1513.988281 499.945312 L 1531.671875 499.945312 L 1531.671875 579.957031 L 1513.988281 579.957031 Z M 1513.988281 499.945312 "],show:["M 1593.296875 524.253906 C 1593.265625 525.496094 1593.25 526.738281 1593.25 527.980469 L 1593.25 529.074219 L 1586.503906 529.074219 L 1586.503906 527.980469 C 1586.503906 526.957031 1586.519531 525.9375 1586.550781 524.910156 C 1586.582031 523.890625 1586.535156 522.867188 1586.414062 521.847656 C 1586.230469 519.289062 1585.628906 517.082031 1584.613281 515.21875 C 1583.59375 513.359375 1582.316406 511.84375 1580.777344 510.675781 C 1579.238281 509.507812 1577.511719 508.648438 1575.605469 508.101562 C 1573.695312 507.554688 1571.722656 507.277344 1569.691406 507.277344 C 1567.84375 507.277344 1566.042969 507.554688 1564.285156 508.101562 C 1562.53125 508.648438 1560.945312 509.488281 1559.527344 510.621094 C 1558.109375 511.75 1556.972656 513.15625 1556.109375 514.835938 C 1555.246094 516.515625 1554.816406 518.449219 1554.816406 520.640625 C 1554.816406 524.144531 1555.570312 526.792969 1557.082031 528.582031 C 1558.589844 530.371094 1560.730469 531.8125 1563.5 532.90625 C 1565.347656 533.710938 1567.347656 534.386719 1569.507812 534.933594 C 1571.660156 535.480469 1573.816406 536.082031 1575.972656 536.742188 C 1578.128906 537.398438 1580.222656 538.21875 1582.257812 539.203125 C 1584.289062 540.191406 1586.105469 541.46875 1587.707031 543.039062 C 1589.308594 544.609375 1590.601562 546.5625 1591.585938 548.898438 C 1592.570312 551.234375 1593.066406 554.117188 1593.066406 557.550781 C 1593.066406 561.347656 1592.402344 564.632812 1591.078125 567.40625 C 1589.753906 570.183594 1588.03125 572.484375 1585.90625 574.308594 C 1583.78125 576.132812 1581.347656 577.5 1578.605469 578.414062 C 1575.867188 579.328125 1573.078125 579.785156 1570.246094 579.785156 C 1562.300781 579.785156 1556.125 577.339844 1551.722656 572.445312 C 1547.316406 567.554688 1545.117188 560.4375 1545.117188 551.089844 L 1545.117188 547.144531 L 1551.859375 547.144531 L 1551.859375 550.761719 C 1551.859375 557.769531 1553.382812 563.15625 1556.433594 566.914062 C 1559.484375 570.675781 1564.054688 572.554688 1570.152344 572.554688 C 1572.246094 572.554688 1574.265625 572.246094 1576.203125 571.625 C 1578.144531 571.003906 1579.867188 570.074219 1581.378906 568.832031 C 1582.886719 567.589844 1584.085938 566.039062 1584.980469 564.175781 C 1585.875 562.316406 1586.320312 560.109375 1586.320312 557.550781 C 1586.320312 555.433594 1585.996094 553.644531 1585.351562 552.183594 C 1584.703125 550.722656 1583.839844 549.484375 1582.765625 548.460938 C 1581.6875 547.4375 1580.46875 546.597656 1579.113281 545.941406 C 1577.757812 545.285156 1576.34375 544.699219 1574.867188 544.1875 C 1573.757812 543.824219 1572.617188 543.476562 1571.445312 543.148438 C 1570.277344 542.820312 1569.074219 542.472656 1567.84375 542.109375 C 1565.5 541.449219 1563.148438 540.667969 1560.777344 539.75 C 1558.402344 538.839844 1556.277344 537.601562 1554.402344 536.027344 C 1552.523438 534.460938 1550.996094 532.453125 1549.828125 530.003906 C 1548.65625 527.558594 1548.074219 524.4375 1548.074219 520.640625 C 1548.074219 517.136719 1548.734375 514.089844 1550.058594 511.496094 C 1551.382812 508.902344 1553.089844 506.769531 1555.1875 505.089844 C 1557.28125 503.410156 1559.621094 502.148438 1562.207031 501.308594 C 1564.792969 500.472656 1567.347656 500.050781 1569.875 500.050781 C 1572.648438 500.050781 1575.375 500.453125 1578.050781 501.253906 C 1580.730469 502.058594 1583.132812 503.300781 1585.257812 504.980469 C 1587.382812 506.660156 1589.167969 508.777344 1590.617188 511.332031 C 1592.0625 513.886719 1592.910156 516.953125 1593.160156 520.53125 C 1593.28125 521.773438 1593.328125 523.015625 1593.296875 524.253906 ", "M 1612.746094 501.582031 L 1612.746094 536.195312 L 1644.433594 536.195312 L 1644.433594 501.582031 L 1651.179688 501.582031 L 1651.179688 578.25 L 1644.433594 578.25 L 1644.433594 543.421875 L 1612.746094 543.421875 L 1612.746094 578.25 L 1606 578.25 L 1606 501.582031 Z M 1612.746094 501.582031 ", "M 1672.519531 558.316406 C 1673.257812 561.238281 1674.398438 563.757812 1675.9375 565.875 C 1677.476562 567.992188 1679.386719 569.636719 1681.667969 570.804688 C 1683.945312 571.972656 1686.65625 572.554688 1689.796875 572.554688 C 1692.9375 572.554688 1695.664062 571.972656 1697.972656 570.804688 C 1700.28125 569.636719 1702.191406 567.992188 1703.699219 565.875 C 1705.210938 563.757812 1706.335938 561.238281 1707.074219 558.316406 C 1707.8125 555.398438 1708.183594 552.183594 1708.183594 548.679688 L 1708.183594 531.15625 C 1708.183594 527.648438 1707.8125 524.4375 1707.074219 521.515625 C 1706.335938 518.597656 1705.210938 516.078125 1703.699219 513.960938 C 1702.191406 511.84375 1700.28125 510.199219 1697.972656 509.03125 C 1695.664062 507.863281 1692.9375 507.277344 1689.796875 507.277344 C 1686.65625 507.277344 1683.945312 507.863281 1681.667969 509.03125 C 1679.386719 510.199219 1677.476562 511.84375 1675.9375 513.960938 C 1674.398438 516.078125 1673.257812 518.597656 1672.519531 521.515625 C 1671.78125 524.4375 1671.410156 527.648438 1671.410156 531.15625 L 1671.410156 548.679688 C 1671.410156 552.183594 1671.78125 555.398438 1672.519531 558.316406 M 1666.238281 518.886719 C 1667.285156 515.019531 1668.839844 511.695312 1670.902344 508.921875 C 1672.964844 506.148438 1675.570312 503.976562 1678.710938 502.40625 C 1681.851562 500.835938 1685.546875 500.050781 1689.796875 500.050781 C 1694.046875 500.050781 1697.757812 500.816406 1700.929688 502.351562 C 1704.101562 503.882812 1706.71875 506.058594 1708.78125 508.867188 C 1710.847656 511.679688 1712.386719 515.019531 1713.402344 518.886719 C 1714.417969 522.757812 1714.925781 526.992188 1714.925781 531.59375 L 1714.925781 548.238281 C 1714.925781 552.839844 1714.402344 557.058594 1713.355469 560.890625 C 1712.308594 564.722656 1710.753906 568.046875 1708.691406 570.859375 C 1706.625 573.667969 1704.023438 575.859375 1700.882812 577.429688 C 1697.742188 579 1694.046875 579.785156 1689.796875 579.785156 C 1685.609375 579.785156 1681.945312 579 1678.800781 577.429688 C 1675.660156 575.859375 1673.042969 573.667969 1670.949219 570.859375 C 1668.855469 568.046875 1667.285156 564.707031 1666.238281 560.835938 C 1665.1875 556.964844 1664.667969 552.769531 1664.667969 548.238281 L 1664.667969 531.59375 C 1664.667969 526.992188 1665.1875 522.757812 1666.238281 518.886719 ", "M 1747.167969 578.25 L 1737.191406 578.25 L 1724.441406 501.582031 L 1731.371094 501.582031 L 1742.367188 568.285156 L 1756.871094 501.582031 L 1766.570312 501.582031 L 1781.078125 568.285156 L 1792.070312 501.582031 L 1799 501.582031 L 1786.25 578.25 L 1776.363281 578.25 L 1761.769531 511.332031 Z M 1747.167969 578.25 "]},
+ framed:{vb:'751 95 417 894',magni:["M 784.035156 959.191406 L 774.804688 902.503906 L 788.199219 900.085938 L 800.347656 931.824219 L 801.105469 897.753906 L 814.015625 895.421875 L 825.199219 951.757812 L 816.339844 953.355469 L 808.5 915.941406 L 808.734375 954.730469 L 800.851562 956.15625 L 787.03125 919.53125 L 793.035156 957.566406 Z M 784.035156 959.191406 ", "M 842 928.691406 L 848 927.609375 L 841.015625 906.105469 Z M 830.640625 950.773438 L 831.105469 892.332031 L 845.339844 889.761719 L 866.082031 944.371094 L 854.574219 946.449219 L 850.535156 934.859375 L 842.230469 936.359375 L 842.433594 948.644531 Z M 830.640625 950.773438 ", "M 885.769531 941.679688 C 881.863281 942.386719 878.632812 942.125 876.085938 940.90625 C 873.535156 939.6875 871.515625 937.6875 870.03125 934.90625 C 868.542969 932.125 867.449219 928.804688 866.753906 924.941406 L 863.324219 905.964844 C 862.601562 901.964844 862.488281 898.40625 862.980469 895.292969 C 863.476562 892.175781 864.820312 889.59375 867.019531 887.539062 C 869.21875 885.484375 872.457031 884.070312 876.738281 883.296875 C 880.921875 882.539062 884.339844 882.644531 886.988281 883.605469 C 889.632812 884.570312 891.691406 886.191406 893.160156 888.472656 C 894.628906 890.753906 895.664062 893.542969 896.257812 896.847656 L 896.914062 900.472656 L 884.703125 902.679688 L 883.875 898.074219 C 883.65625 896.867188 883.371094 895.765625 883.023438 894.769531 C 882.675781 893.777344 882.15625 893.019531 881.460938 892.496094 C 880.765625 891.972656 879.765625 891.828125 878.464844 892.0625 C 877.113281 892.308594 876.203125 892.84375 875.730469 893.671875 C 875.253906 894.503906 875.03125 895.46875 875.0625 896.566406 C 875.09375 897.667969 875.214844 898.796875 875.425781 899.960938 L 880.152344 926.125 C 880.378906 927.378906 880.71875 928.53125 881.171875 929.578125 C 881.625 930.625 882.25 931.425781 883.046875 931.976562 C 883.839844 932.53125 884.867188 932.691406 886.125 932.464844 C 887.425781 932.230469 888.363281 931.699219 888.933594 930.875 C 889.503906 930.054688 889.832031 929.058594 889.90625 927.890625 C 889.984375 926.726562 889.910156 925.515625 889.683594 924.257812 L 888.488281 917.628906 L 883.394531 918.550781 L 882.070312 911.222656 L 898.394531 908.273438 L 903.6875 937.578125 L 895.457031 939.066406 L 893.914062 934.515625 C 893.457031 936.234375 892.597656 937.742188 891.347656 939.050781 C 890.09375 940.359375 888.234375 941.234375 885.769531 941.679688 ", "M 911.503906 936.164062 L 901.292969 879.652344 L 910.085938 878.066406 L 926.582031 903.183594 L 921.667969 875.972656 L 931.992188 874.109375 L 942.199219 930.621094 L 933.757812 932.144531 L 916.882812 904.933594 L 922.175781 934.238281 Z M 911.503906 936.164062 ", "M 950.710938 929.082031 L 940.5 872.570312 L 952.992188 870.316406 L 963.199219 926.828125 Z M 950.710938 929.082031 "],show:["M 999.617188 879.621094 C 999.753906 880.503906 999.902344 881.382812 1000.058594 882.257812 L 1000.199219 883.03125 L 995.4375 883.894531 L 995.296875 883.117188 C 995.164062 882.398438 995.046875 881.675781 994.9375 880.949219 C 994.828125 880.222656 994.664062 879.507812 994.449219 878.800781 C 993.992188 877.019531 993.285156 875.535156 992.328125 874.347656 C 991.375 873.164062 990.277344 872.257812 989.042969 871.628906 C 987.804688 871 986.476562 870.613281 985.058594 870.46875 C 983.640625 870.328125 982.214844 870.382812 980.777344 870.644531 C 979.472656 870.878906 978.238281 871.304688 977.066406 871.914062 C 975.898438 872.523438 974.882812 873.320312 974.027344 874.300781 C 973.171875 875.28125 972.546875 876.417969 972.152344 877.714844 C 971.753906 879.011719 971.699219 880.433594 971.976562 881.980469 C 972.425781 884.453125 973.292969 886.230469 974.589844 887.296875 C 975.882812 888.371094 977.578125 889.113281 979.675781 889.535156 C 981.085938 889.867188 982.582031 890.089844 984.175781 890.199219 C 985.769531 890.3125 987.367188 890.460938 988.976562 890.652344 C 990.582031 890.839844 992.164062 891.152344 993.726562 891.589844 C 995.289062 892.027344 996.734375 892.699219 998.066406 893.601562 C 999.398438 894.507812 1000.558594 895.722656 1001.554688 897.246094 C 1002.546875 898.769531 1003.265625 900.746094 1003.703125 903.167969 C 1004.1875 905.851562 1004.136719 908.253906 1003.558594 910.382812 C 1002.976562 912.511719 1002.050781 914.359375 1000.78125 915.917969 C 999.515625 917.476562 997.972656 918.753906 996.152344 919.75 C 994.332031 920.742188 992.421875 921.421875 990.421875 921.78125 C 984.808594 922.796875 980.136719 921.855469 976.402344 918.964844 C 972.667969 916.070312 970.203125 911.324219 969.011719 904.722656 L 968.507812 901.9375 L 973.273438 901.078125 L 973.734375 903.628906 C 974.625 908.578125 976.390625 912.191406 979.023438 914.457031 C 981.65625 916.722656 985.125 917.464844 989.433594 916.6875 C 990.910156 916.421875 992.296875 915.945312 993.589844 915.257812 C 994.878906 914.574219 995.980469 913.695312 996.886719 912.625 C 997.792969 911.558594 998.445312 910.308594 998.835938 908.878906 C 999.230469 907.449219 999.265625 905.835938 998.9375 904.027344 C 998.667969 902.535156 998.210938 901.3125 997.570312 900.363281 C 996.925781 899.414062 996.15625 898.648438 995.265625 898.0625 C 994.375 897.476562 993.40625 897.039062 992.367188 896.75 C 991.328125 896.457031 990.25 896.226562 989.144531 896.050781 C 988.3125 895.9375 987.460938 895.835938 986.59375 895.753906 C 985.726562 895.671875 984.832031 895.582031 983.917969 895.480469 C 982.179688 895.3125 980.414062 895.0625 978.625 894.71875 C 976.832031 894.375 975.175781 893.769531 973.648438 892.902344 C 972.121094 892.03125 970.789062 890.808594 969.648438 889.230469 C 968.511719 887.652344 967.699219 885.523438 967.214844 882.839844 C 966.769531 880.363281 966.847656 878.128906 967.449219 876.128906 C 968.054688 874.128906 968.988281 872.402344 970.253906 870.949219 C 971.519531 869.496094 973.011719 868.308594 974.730469 867.382812 C 976.453125 866.460938 978.203125 865.835938 979.988281 865.515625 C 981.945312 865.160156 983.921875 865.097656 985.914062 865.324219 C 987.910156 865.550781 989.765625 866.117188 991.480469 867.035156 C 993.195312 867.949219 994.726562 869.214844 996.074219 870.835938 C 997.421875 872.457031 998.414062 874.515625 999.042969 877.011719 C 999.289062 877.871094 999.480469 878.742188 999.617188 879.621094 ", "M 1010.460938 861.128906 L 1014.875 885.574219 L 1037.257812 881.53125 L 1032.839844 857.085938 L 1037.605469 856.226562 L 1047.386719 910.375 L 1042.621094 911.234375 L 1038.179688 886.636719 L 1015.796875 890.679688 L 1020.242188 915.277344 L 1015.476562 916.136719 L 1005.695312 861.988281 Z M 1010.460938 861.128906 ", "M 1059.917969 893.570312 C 1060.8125 895.542969 1061.9375 897.175781 1063.292969 898.472656 C 1064.652344 899.773438 1066.210938 900.691406 1067.96875 901.222656 C 1069.726562 901.757812 1071.714844 901.824219 1073.933594 901.425781 C 1076.152344 901.023438 1078.003906 900.261719 1079.488281 899.144531 C 1080.96875 898.023438 1082.109375 896.621094 1082.902344 894.929688 C 1083.699219 893.246094 1084.171875 891.320312 1084.320312 889.164062 C 1084.46875 887.007812 1084.320312 884.691406 1083.875 882.214844 L 1081.636719 869.839844 C 1081.191406 867.363281 1080.519531 865.140625 1079.625 863.171875 C 1078.730469 861.207031 1077.617188 859.570312 1076.28125 858.265625 C 1074.941406 856.960938 1073.386719 856.046875 1071.605469 855.515625 C 1069.824219 854.984375 1067.824219 854.917969 1065.605469 855.320312 C 1063.386719 855.722656 1061.546875 856.480469 1060.089844 857.597656 C 1058.628906 858.710938 1057.488281 860.113281 1056.671875 861.808594 C 1055.851562 863.5 1055.371094 865.425781 1055.222656 867.582031 C 1055.070312 869.738281 1055.21875 872.054688 1055.667969 874.527344 L 1057.902344 886.90625 C 1058.351562 889.382812 1059.023438 891.605469 1059.917969 893.570312 M 1050.449219 866.527344 C 1050.695312 863.660156 1051.367188 861.113281 1052.472656 858.890625 C 1053.574219 856.667969 1055.136719 854.804688 1057.15625 853.292969 C 1059.171875 851.785156 1061.683594 850.757812 1064.683594 850.214844 C 1067.6875 849.671875 1070.40625 849.742188 1072.839844 850.417969 C 1075.277344 851.097656 1077.402344 852.300781 1079.21875 854.019531 C 1081.035156 855.742188 1082.546875 857.90625 1083.757812 860.507812 C 1084.972656 863.113281 1085.871094 866.039062 1086.457031 869.289062 L 1088.582031 881.042969 C 1089.167969 884.292969 1089.335938 887.339844 1089.085938 890.179688 C 1088.835938 893.019531 1088.160156 895.566406 1087.0625 897.8125 C 1085.964844 900.0625 1084.40625 901.941406 1082.386719 903.453125 C 1080.371094 904.960938 1077.859375 905.988281 1074.859375 906.527344 C 1071.898438 907.0625 1069.210938 906.976562 1066.792969 906.269531 C 1064.375 905.5625 1062.246094 904.347656 1060.40625 902.628906 C 1058.570312 900.914062 1057.035156 898.753906 1055.800781 896.152344 C 1054.566406 893.554688 1053.664062 890.65625 1053.085938 887.457031 L 1050.960938 875.699219 C 1050.375 872.449219 1050.203125 869.394531 1050.449219 866.527344 ", "M 1115.183594 898.125 L 1108.136719 899.398438 L 1089.351562 846.878906 L 1094.242188 845.992188 L 1110.519531 891.699219 L 1112.253906 842.738281 L 1119.105469 841.503906 L 1137.859375 886.761719 L 1137.113281 838.25 L 1142.007812 837.363281 L 1142.785156 893.140625 L 1135.804688 894.402344 L 1116.957031 849 Z M 1115.183594 898.125 "],mark:["M 775.773438 624.488281 L 775.773438 119.734375 L 904.144531 119.734375 L 959.605469 413.238281 L 1019.425781 119.734375 L 1143.433594 119.734375 L 1143.433594 624.488281 L 1064.292969 624.488281 L 1054.945312 288.609375 L 996.371094 624.488281 L 925.957031 624.488281 L 863.640625 286.113281 L 856.160156 624.488281 Z M 775.773438 624.488281 ", "M 1144.210938 702.15625 L 926.574219 700.320312 C 922.207031 700.320312 921.195312 706.433594 925.332031 707.835938 L 1136.113281 759.472656 C 1141 761.402344 1144.210938 766.125 1144.210938 771.378906 L 1144.210938 817.144531 C 1144.210938 824.214844 1138.476562 829.945312 1131.40625 829.945312 L 775 893.578125 L 775 826.117188 L 975.644531 793.683594 C 979.554688 792.996094 980.007812 787.5625 976.261719 786.238281 L 787.828125 740.933594 C 787.8125 740.925781 787.796875 740.917969 787.777344 740.910156 C 783.050781 738.894531 775 734.265625 775 729.144531 L 775 646.101562 C 775 638.542969 781.128906 632.417969 788.6875 632.417969 L 1144.210938 632.417969 Z M 1144.210938 702.15625 "],frame:["M 1158 105 L 761 105 L 761 979.417969 L 769.277344 977.882812 L 1152.277344 906.882812 L 1158 905.820312 Z M 1151 112 L 1151 900 L 768 971 L 768 112 Z M 1151 112 "]}
+};
+
+</script>
+<script>
+/* ——— Brand themes per executive (Keybrand Magnishow) ——— */
+const THEMES = {
+  celeste: { bg:'#33ccff', ink:'#000000', mark:'#0033ff', name:'Celeste' },
+  amarillo:{ bg:'#ffbe0b', ink:'#ffffff', mark:'#fb5607', name:'Amarillo' },
+  rosa:    { bg:'#ff006e', ink:'#ffffff', mark:'#ffffff', name:'Rosa · logo blanco' },
+  naranja: { bg:'#fb5607', ink:'#000000', mark:'#000000', name:'Naranja' },
+  azul:    { bg:'#0033ff', ink:'#ffffff', mark:'#33ccff', name:'Azul' },
+  amarillo2:{ bg:'#ffbe0b', ink:'#000000', mark:'#000000', name:'Amarillo · logo negro' },
+  rosa2:   { bg:'#ff006e', ink:'#ffffff', mark:'#3300cc', name:'Rosa · logo violeta' },
+  naranja2:{ bg:'#fb5607', ink:'#ffffff', mark:'#ffffff', name:'Naranja · logo blanco' },
+  azul2:   { bg:'#0033ff', ink:'#ffffff', mark:'#ffbe0b', name:'Azul · logo amarillo' },
+  venezuela:{ bg:'#3300cc', ink:'#ffffff', mark:'#ffbe0b', name:'Venezuela · violeta y amarillo', ui:'#ffbe0b' },   // ui: el violeta no se ve sobre la barra negra
+  negro:   { bg:'#000000', ink:'#ffffff', mark:'#ffffff', name:'Negro', ui:'#ffffff', screen:'#ffffff', screenInk:'#000000' }
+};
+const EXECS = [
+  ['Diego','celeste'], ['Leonardo','amarillo'], ['Miguel','amarillo2'],
+  ['Natalia','rosa'], ['Diana','rosa2'], ['Isabella','naranja'],
+  ['Johana','naranja2'], ['Deyka','azul2'], ['Andrea','azul'], ['Fernando','negro'], ['Venezuela','venezuela']
+];
+/* Condiciones Generales de Servicio de Magnishow (texto oficial de la cotización Rentman) */
+const DEFAULT_CLAUSES = [
+  {t:'Vigencia del presupuesto', x:'El presente presupuesto tendrá una vigencia de diez (10) días hábiles contados a partir de la fecha de su emisión. Transcurrido dicho plazo, tanto la disponibilidad de fechas como los precios podrán estar sujetos a modificaciones sin previo aviso.'},
+  {t:'Aprobación del servicio', x:'La confirmación del servicio deberá formalizarse mediante el envío de una orden de compra o carta compromiso al correo electrónico admin@magnishow.com. La aceptación de la propuesta será considerada como un acuerdo contractual vinculante. La mera solicitud de presupuesto no garantiza la disponibilidad de fechas ni constituye una reserva formal.'},
+  {t:'Cancelaciones y penalidades', x:'En caso de cancelación del evento con menos de cuarenta y ocho (48) horas de antelación, Magnishow se reserva el derecho de facturar hasta el cien por ciento (100%) del monto acordado, en función de los gastos logísticos incurridos. La no utilización parcial de los equipos no exime al cliente del pago íntegro del servicio contratado.'},
+  {t:'Condiciones de instalación', x:'Los equipos contratados deberán ser instalados en espacios techados y debidamente protegidos contra la lluvia. En situaciones de riesgo, Magnishow se reserva el derecho de abstenerse de instalar o de suspender el uso de los equipos, previa notificación al cliente. Esta disposición no será aplicable en los casos en que el cliente arriende exclusivamente estructuras o tarimas, o cuando Magnishow provea la protección adecuada.'},
+  {t:'Energía eléctrica', x:'El cliente tendrá la obligación de proveer una fuente de energía eléctrica funcional o de contratar una planta eléctrica que cumpla con los requerimientos técnicos del evento, previa aprobación técnica por parte de Magnishow.'},
+  {t:'Acceso para montaje y desmontaje', x:'El cliente deberá garantizar el acceso al lugar del evento para el montaje de los equipos con al menos veinticuatro (24) horas de antelación al inicio del evento. Para el desmontaje, se deberá permitir el acceso durante al menos doce (12) horas posteriores a la finalización del mismo. El tiempo requerido podrá incrementarse en función de la magnitud del montaje.'},
+  {t:'Estacionamiento y logística', x:'El cliente se compromete a facilitar, como mínimo, un puesto de estacionamiento seguro para el transporte y resguardo del equipo durante las fases de montaje, realización del evento y desmontaje. El personal de Magnishow no está autorizado a operar equipos desde la vía pública.'},
+  {t:'Custodia de equipos', x:'A partir de la entrega y hasta la devolución de los equipos, el cliente será responsable de su seguridad y resguardo. En caso de daño o pérdida, se aplicará una penalidad por lucro cesante, calculada en base al valor diario de alquiler de los equipos afectados.'},
+  {t:'Cableado y seguridad técnica', x:'Magnishow proveerá el cableado eléctrico necesario para la operación de los equipos. Se reserva el derecho de no prestar el servicio si no se cumplen las condiciones mínimas de seguridad para su personal o para los equipos.'},
+  {t:'Normativas de orden público', x:'Magnishow acatará todas las instrucciones y disposiciones emitidas por las autoridades competentes en materia de ruido, seguridad y demás aspectos relacionados con el evento.'},
+  {t:'Fuerza mayor', x:'En caso de presentarse situaciones de fuerza mayor (tales como condiciones climáticas extremas, restricciones de circulación, disposiciones gubernamentales, entre otras), Magnishow podrá reprogramar o cancelar el evento. En tales circunstancias, se evaluará la devolución parcial o total de cualquier anticipo no utilizado, dependiendo del estado de la instalación al momento del suceso.'},
+  {t:'Horas adicionales', x:'El presente presupuesto contempla la prestación del servicio para un evento de hasta diez (10) horas de duración. Cada hora adicional será facturada a razón de cien dólares estadounidenses (USD $100) por operador, previa aprobación escrita por parte del cliente.'},
+  {t:'Coordinación operativa', x:'El cliente deberá designar a una persona responsable para coordinar las labores de montaje, desmontaje y ejecución del evento. Dicha persona será el único contacto autorizado, salvo indicación expresa en contrario por parte del cliente.'},
+  {t:'Documentación requerida', x:'Para la formalización del contrato, el cliente deberá entregar la siguiente documentación: copia del Aviso de Operaciones; cédula del representante legal; propuesta firmada por el representante legal o persona debidamente autorizada.'},
+  {t:'Condiciones para el personal técnico', x:'Durante el evento, el personal técnico de Magnishow deberá contar con un área de resguardo equipada con mesas, sillas e hidratación (agua), y con acceso a baños durante el montaje, el evento y el desmontaje.'},
+  {t:'Material audiovisual', x:'Todos los archivos de video o audio deberán ser entregados a Magnishow al menos cuarenta y ocho (48) horas antes del ensayo o inicio del evento. La recepción de los mismos deberá ser confirmada por un ejecutivo de la empresa.'},
+  {t:'Climatización para ensayos', x:'En caso de ensayos cuya duración exceda los veinte (20) minutos, el cliente deberá garantizar una temperatura no mayor a veintiséis grados Celsius (26 °C), a fin de evitar daños por sobrecalentamiento en los equipos. Se recomienda realizar el ensayo el día anterior, con el personal del evento y asumiendo los costos asociados.'},
+  {t:'Confidencialidad y relación con terceros', x:'Magnishow no contactará directamente al cliente final sin autorización previa. Esta cláusula será aplicable durante la vigencia de la relación comercial y hasta seis (6) meses posteriores a la realización del último evento.'},
+  {t:'Fallas eléctricas', x:'Magnishow no asumirá responsabilidad alguna por fallas eléctricas ocurridas en la locación. Cualquier daño derivado de dichas fallas será responsabilidad exclusiva del cliente.'},
+  {t:'Seguridad industrial', x:'En caso de que el cliente requiera el cumplimiento de normativas específicas de seguridad industrial por parte del personal de Magnishow, deberá notificarlo con al menos treinta (30) días hábiles de antelación. Cualquier gasto adicional que ello implique será informado previamente y estará sujeto a la aprobación del cliente.'},
+  {t:'Pago', x:'Con la firma de este documento, el cliente se compromete a realizar el pago de la cotización adjunta por un monto de {total}.'}
+];
+// Contacto de Venezuela: provisional con los teléfonos del documento hasta confirmar el oficial
+const CONTACT_VE = { line1:'Magnishow Venezuela', line2:'', line3:'', line4:'' };
+const CONTACT = { line1:'Magnishow Panamá', line2:'Parque Lefevre, Santa Elena, Calle W, Galera #4, Ciudad de Panamá', line3:'magnishowpanama.com · hola@magnishow.com', line4:'WhatsApp (+507) 6621 6216 · (+507) 270 7870 · (+507) 270 7830' };
+
+/* ——— Logo builders (paths copied from the Keybrand SVGs, only recoloured) ——— */
+// width/height explícitos: sin ellos html2canvas toma 300×150 y el PDF sale con el logo recortado
+function svgDoc(vb, inner){ const [, , w, h] = vb.split(/\s+/).map(Number); return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" width="${w}" height="${h}">${inner}</svg>`; }
+function paths(arr, fill){ return arr.map(d=>`<path fill="${fill}" d="${d}"/>`).join(''); }
+const svgMono = c => svgDoc(LOGO.mono.vb, paths(LOGO.mono.p, c));
+const svgWord = (m,s) => svgDoc(LOGO.word.vb, paths(LOGO.word.magni, m)+paths(LOGO.word.show, s));
+const uri = svg => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+
+/* ——— State ——— */
+const S = { exec:'Diego', quoteText:'', quoteName:'', renders:[], clauses:new Set(DEFAULT_CLAUSES.map((_,i)=>i)), data:null, sketch:null, busy:false };
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const money = n => '$' + (Number(n)||0).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2});
+const theme = () => THEMES[(EXECS.find(e=>e[0]===S.exec)||EXECS[0])[1]];
+
+try{ const e = localStorage.getItem('mg-exec'); if(e && EXECS.some(x=>x[0]===e)) S.exec = e; }catch(_){}
+try{ const c = localStorage.getItem('mg-custom'); if(c) $('customClauses').value = c; }catch(_){}
+
+/* ——— Sidebar ——— */
+function paintChrome(){
+  const t = theme();
+  document.documentElement.style.setProperty('--acc', t.bg);
+  document.documentElement.style.setProperty('--acc-ink', t.ink);
+  $('barWordmark').src = uri(svgWord(t.ui || t.bg, '#ffffff'));
+  document.documentElement.style.setProperty('--acc-bar', t.ui || t.bg);
+}
+function renderExecs(){
+  $('execs').innerHTML = EXECS.map(([n,k])=>`<button class="exec" type="button" data-n="${n}" aria-pressed="${n===S.exec}"><span class="sw" style="background:${THEMES[k].bg}"><i style="background:${THEMES[k].mark}"></i></span>${n}</button>`).join('');
+  $('execs').querySelectorAll('.exec').forEach(b=>b.onclick=()=>{
+    S.exec=b.dataset.n; try{localStorage.setItem('mg-exec',S.exec)}catch(_){}
+    renderExecs(); paintChrome(); if(S.data) renderPages();
+  });
+}
+function renderClauses(){
+  $('clauses').innerHTML = DEFAULT_CLAUSES.map((c,i)=>`<label class="check"><input type="checkbox" data-i="${i}" ${S.clauses.has(i)?'checked':''}><span><b style="font-weight:600">${i+1}. ${esc(c.t)}</b></span></label>`).join('');
+  $('clauses').querySelectorAll('input').forEach(x=>x.onchange=()=>{ x.checked?S.clauses.add(+x.dataset.i):S.clauses.delete(+x.dataset.i); if(S.data) renderPages(); });
+}
+$('customClauses').addEventListener('input', e=>{ try{localStorage.setItem('mg-custom', e.target.value)}catch(_){} });
+
+function wireDrop(label, input, onFiles){
+  input.addEventListener('change', ()=>{ onFiles([...input.files]); input.value=''; });
+  label.addEventListener('dragover', e=>{e.preventDefault(); label.classList.add('over')});
+  label.addEventListener('dragleave', ()=>label.classList.remove('over'));
+  label.addEventListener('drop', e=>{e.preventDefault(); label.classList.remove('over'); onFiles([...e.dataTransfer.files]);});
+}
+const DETALLE = '\u21B3 ';   // marca de línea en cursiva (detalle)
+async function pdfText(file){
+  const lib = window.pdfjsLib; if(!lib) throw new Error('pdf');
+  lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const pdf = await lib.getDocument({data: await file.arrayBuffer()}).promise;
+  let out = '';
+  for(let p=1; p<=pdf.numPages; p++){
+    const page = await pdf.getPage(p);
+    await page.getOperatorList();   // carga las fuentes para saber cuáles son cursiva
+    const tc = await page.getTextContent();
+    const cursiva = fn => { try{ return /italic|oblique/i.test(page.commonObjs.get(fn)?.name || ''); }catch(_){ return false; } };
+    // Ordena el texto por filas visuales (de arriba abajo, de izquierda a derecha):
+    // el orden interno del PDF no siempre coincide con lo que se ve.
+    const items = tc.items.filter(it=>it.str && it.str.trim()).map(it=>({s:it.str, x:it.transform[4], y:it.transform[5], i:cursiva(it.fontName)}));
+    items.sort((a,b)=>b.y-a.y || a.x-b.x);
+    const rows = [];
+    for(const it of items){
+      const row = rows[rows.length-1];
+      if(row && Math.abs(row.y-it.y)<=2) row.items.push(it); else rows.push({y:it.y, items:[it]});
+    }
+    // DETALLE marca las filas en cursiva: en Rentman son los detalles del ítem de arriba
+    const lines = rows.map(r=>(r.items.every(i=>i.i) ? DETALLE : '') + r.items.sort((a,b)=>a.x-b.x).map(i=>i.s).join(' '));
+    out += `\n--- Página ${p} ---\n` + lines.map(l=>l.replace(/\s+/g,' ').trim()).filter(Boolean).join('\n');
+  }
+  return out.trim();
+}
+wireDrop($('dropQuote'), $('fileQuote'), async files=>{
+  const f = files.find(f=>/\.(pdf|xlsx|xlsm|xls|csv|ods|docx)$/i.test(f.name) || f.type==='application/pdf');
+  if(!f){ status(files.some(f=>/\.doc$/i.test(f.name)) ? 'Ese Word es del formato antiguo (.doc): guárdalo como .docx o PDF y vuelve a subirlo.' : 'Sube la cotización en PDF, Excel (.xlsx) o Word (.docx), o pega su texto.', true); return; }
+  status('Leyendo la cotización…');
+  try{
+    S.quoteText = await quoteFileText(f); S.quoteName = f.name;
+    if(S.quoteText.length < 80) throw new Error('vacío');
+    $('quoteChip').innerHTML = `<div class="filechip"><span>${esc(f.name)}</span><button type="button" id="rmQuote">Quitar</button></div>`;
+    $('rmQuote').onclick = ()=>{ S.quoteText=''; S.quoteName=''; $('quoteChip').innerHTML=''; };
+    try{ fillForm(parseQuote(S.quoteText)); $('go').click(); }catch(_){}
+  }catch(e){
+    status(e.message==='formato' ? 'Ese tipo de archivo no se puede leer. Usa PDF, Excel (.xlsx) o Word (.docx).' : 'No se pudo leer el texto del archivo (si es un PDF escaneado no tiene texto). Pega el texto de la cotización en el recuadro de abajo.', true);
+    document.querySelector('#dropQuote + div + details').open = true;
+  }
+});
+wireDrop($('dropRenders'), $('fileRenders'), files=>{
+  files.filter(f=>f.type.startsWith('image/')).slice(0, MAX_RENDERS - S.renders.length).forEach(f=>{
+    const r = new FileReader();
+    r.onload = ()=>{ S.renders.push(r.result); renderThumbs(); if(S.data) renderPages(); };
+    r.readAsDataURL(f);
+  });
+});
+const MAX_RENDERS = 10;
+function renderThumbs(){
+  $('thumbs').innerHTML = S.renders.map((src,i)=>`<figure style="background-image:url('${src}')"><button type="button" data-i="${i}" aria-label="Quitar render">✕</button></figure>`).join('');
+  $('thumbs').querySelectorAll('button').forEach(b=>b.onclick=()=>{ S.renders.splice(+b.dataset.i,1); renderThumbs(); if(S.data) renderPages(); });
+}
+function status(msg, err){ $('status').textContent = msg; $('status').classList.toggle('err', !!err); }
+
+/* ——— Motor local: lee la cotización Rentman sin IA (sin consumo de créditos) ——— */
+const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const DIAS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+const GROUP_FIX = { logistica:'Logística', iluminacion:'Iluminación', produccion:'Producción', energia:'Energía', decoracion:'Decoración', tarimas:'Tarimas', escenografia:'Escenografía', estructuras:'Estructuras' };
+const KNOWN_GROUPS = ['video','audio','pantalla','iluminacion','streaming','logistica','escenario','escenografia','estructuras','tarimas','pantallas','mobiliario','personal','produccion','efectos','decoracion','energia','fotografia','diseño','diseno','activaciones','stands','traduccion','registro','otros','varios','transporte','cortesia','cortesias','rigging','truss','grabacion','contenido'];
+const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+function num(s){
+  s = String(s).replace(/[^\d.,-]/g,'');
+  const lc = s.lastIndexOf(','), ld = s.lastIndexOf('.');
+  if(lc > ld) s = s.replace(/\./g,'').replace(',', '.'); else s = s.replace(/,/g,'');
+  return parseFloat(s) || 0;
+}
+function parseDateTxt(s){
+  if(!s) return null;
+  let m = s.match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/); if(m) return new Date(+m[3], +m[2]-1, +m[1]);
+  m = norm(s).match(/(\d{1,2})\s+(?:de\s+)?([a-z]+)\s+(?:de\s+)?(\d{4})/);
+  if(m){ const i = MESES.findIndex(x=>x.startsWith(m[2].slice(0,3))); if(i>=0) return new Date(+m[3], i, +m[1]); }
+  return null;
+}
+const longDate = d => d ? `${DIAS[d.getDay()]} ${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}` : null;
+const shortDate = d => d ? `${d.getDate()} ${MESES[d.getMonth()].slice(0,3)}` : null;
+const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+// Domingo de Pascua (algoritmo anónimo gregoriano / Meeus)
+function easterSunday(y){
+  const a=y%19, b=Math.floor(y/100), c=y%100, d=Math.floor(b/4), e=b%4, f=Math.floor((b+8)/25), g=Math.floor((b-f+1)/3);
+  const h=(19*a+b-d-g+15)%30, i=Math.floor(c/4), k=c%4, l=(32+2*e+2*i-h-k)%7, m=Math.floor((a+11*h+22*l)/451);
+  const mes=Math.floor((h+l-7*m+114)/31), dia=((h+l-7*m+114)%31)+1;
+  return new Date(y, mes-1, dia);
+}
+// Feriados nacionales de Panamá. Si uno cae en domingo, se descansa el lunes siguiente.
+const _feriadosCache = {};
+function feriadosPanama(y){
+  if(_feriadosCache[y]) return _feriadosCache[y];
+  const fijos = [[1,1],[1,9],[5,1],[11,3],[11,4],[11,5],[11,10],[11,28],[12,8],[12,20],[12,25]]
+    .map(([m,d])=>new Date(y,m-1,d));
+  const pascua = easterSunday(y), rel = n => { const d=new Date(pascua); d.setDate(d.getDate()+n); return d; };
+  const moviles = [rel(-48), rel(-47), rel(-2)]; // lunes y martes de Carnaval, Viernes Santo
+  const set = new Set();
+  fijos.forEach(d=>{ if(d.getDay()===0) d.setDate(d.getDate()+1); set.add(d.toDateString()); });
+  moviles.forEach(d=>set.add(d.toDateString()));
+  return _feriadosCache[y] = set;
+}
+const esFeriado = d => feriadosPanama(d.getFullYear()).has(d.toDateString());
+function addBusinessDays(date, n, sinFeriados){ const d = new Date(date); let k = 0; while(k < n){ d.setDate(d.getDate()+1); const w = d.getDay(); if(w!==0 && w!==6 && (sinFeriados || !esFeriado(d))) k++; } return d; }
+function cleanName(s){
+  return s.replace(/\s*\(Metro cuadrado\)/i,'').replace(/\s+-\s+/,' ').replace(/powerpoint/i,'PowerPoint').replace(/\s+/g,' ').trim();
+}
+
+function parseRentman(text){
+  const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
+  const all = lines.join('\n');
+  const pick = re => { const m = all.match(re); return m ? m[1].trim() : null; };
+  const q = {
+    regarding: pick(/Regarding:\s*(.+)/i),
+    cliente: pick(/Cliente:\s*(.*?)\s*(?:Direcci[oó]n:|$)/im),
+    recinto: pick(/Direcci[oó]n:\s*(.+)/i),
+    numero: pick(/Cotizaci[oó]n n[uú]mero:\s*(\d+)/i),
+    proyecto: pick(/Proyecto n[uú]mero:\s*(\d+)/i),
+    validoTxt: pick(/V[aá]lido hasta:\s*([\d\-\/]+)/i),
+    fechaCotTxt: pick(/Fecha de cotizaci[oó]n:\s*([\d\-\/]+)/i),
+    eventoTxt: pick(/Fecha del evento:\s*([^\n]+?)(?:\s+\d{1,2}:\d{2})?$/im),
+    montajeTxt: pick(/Fecha de montaje:\s*([^\n]+?)(?:\s+\d{1,2}:\d{2})?$/im),
+    pago: pick(/M[eé]todo de pago:\s*(.+?)(?:\s+Fecha de cotizaci|$)/im),
+    subtotal: null, itbms: 0, total: null
+  };
+  const mSub = all.match(/ITBMS no incl\S*:\s*\$?\s*([\d.,]+)/i); if(mSub) q.subtotal = num(mSub[1]);
+  const mIt = all.match(/\d+\s*%\s*de ITBMS:\s*\$?\s*([\d.,]+)/i); if(mIt) q.itbms = num(mIt[1]);
+  const mTot = all.match(/IT[BM]{2}S Incluido:\s*\$?\s*([\d.,]+)/i); if(mTot) q.total = num(mTot[1]);
+  if(q.cliente && /^(telf|direcci)/i.test(q.cliente)) q.cliente = '';
+  if(q.recinto && /^(telf|e-mail)/i.test(q.recinto)) q.recinto = '';
+
+  // Ítems
+  const groups = []; let g = null, item = null, started = false;
+  const PRICE = /^(\d+(?:[.,]\d+)?)\s*(.+?)\s+\$\s*([\d.,]+)\s+([\d.,]+)\s+\$\s*([\d.,]+)\s*$/;
+  // Formato sin precio por ítem: "2 Bose L1 Pro" y al final del grupo "Total Audio : $ 840,00"
+  const NOPRICE = /^(\d+(?:[.,]\d+)?)\s+(\D.*)$/;
+  const GTOTAL = /^Total\s+(.+?)\s*:\s*(?:\$\s*([\d.,]+))?\s*$/i;
+  const priceMode = lines.some(l=>PRICE.test(l));
+  const newItem = (qtyTxt, name, unit, factor, total) => {
+    if(!g){ g = {nombre:'Servicios', items:[]}; groups.push(g); }
+    const qty = num(qtyTxt), m2 = /metro cuadrado/i.test(name);
+    item = { concepto: cleanName(name), detalle:'', det:[], cantidad: m2 ? `${qty} m²` : String(qty), qty, unit, factor, total, cortesia: total===0 };
+    g.items.push(item);
+  };
+  for(const l of lines){
+    if(/^Equipos\b/i.test(l)){ started = true; continue; }
+    if(!started) continue;
+    const gt = l.match(GTOTAL);
+    if(gt){ if(g && gt[2]) g.totalPdf = num(gt[2]); item = null; continue; }
+    if(/^(Total\b|Precio ITBMS|\d+% de ITBMS|CONDICIONES GENERALES)/i.test(l)) break;
+    if(/^-+ P[aá]gina|^\d+\/\d+$|magnishow|Parque Lefevre|\(\+507\)|^Cotizaci[oó]n$|^Valor unitario|^unitario|^Factor/i.test(l)) continue;
+    if(l.startsWith(DETALLE.trim())){ const t = l.slice(1).trim(); if(item && t) item.det.push(t); continue; }   // cursiva = detalle
+    const m = l.match(PRICE);
+    if(m){ newItem(m[1], m[2], num(m[3]), num(m[4]), num(m[5])); continue; }
+    const np = !priceMode && l.match(NOPRICE);
+    if(np){ newItem(np[1], np[2], null, null, null); continue; }
+    const isGroup = !/^\d/.test(l) && !/\$/.test(l) && (KNOWN_GROUPS.includes(norm(l)) || (!item && l.length < 40));
+    if(isGroup){ const k = norm(l); g = {nombre: GROUP_FIX[k] || cap(l), items:[]}; groups.push(g); item = null; continue; }
+    if(item){ item.det.push(l.replace(/^(\d+)\s*/, '$1 ')); }
+  }
+  groups.forEach(gr=>gr.items.forEach(it=>{ it.detalle = it.det.join(' · '); }));
+  q.soloGrupos = !priceMode;
+  // Si los montos "Total grupo" salieron sueltos al final del texto (solo "$ 840,00"),
+  // se asignan en orden a los grupos y los tres siguientes son subtotal, ITBMS y total.
+  const real = groups.filter(gr=>gr.items.length);
+  if(!priceMode && real.some(gr=>gr.totalPdf==null)){
+    const amounts = lines.filter(l=>/^\$\s*[\d.,]+$/.test(l)).map(l=>num(l.replace(/^\$\s*/,'')));
+    const n = real.length;
+    if(amounts.length >= n){
+      const sum = amounts.slice(0,n).reduce((a,b)=>a+b,0);
+      const sub = q.subtotal ?? amounts[n];
+      if(sub==null || Math.abs(sum-sub) < 0.01){
+        real.forEach((gr,i)=>{ gr.totalPdf = amounts[i]; });
+        if(q.subtotal==null && amounts[n]!=null) q.subtotal = amounts[n];
+        if(!q.itbms && amounts[n+1]!=null && Math.abs(amounts[n+1]-q.subtotal*0.07)<0.05) q.itbms = amounts[n+1];
+        if(q.total==null && amounts[n+2]!=null) q.total = amounts[n+2];
+      }
+    }
+  }
+  return { q, groups: groups.filter(gr=>gr.items.length) };
+}
+
+/* ——— Lector genérico: cotizaciones que no son de Rentman (otras plantillas, Excel, Word) ———
+   Busca los datos por su etiqueta (Cliente:, Evento:, Lugar:, Fecha:, N° presupuesto) y lee cualquier tabla
+   de "descripción … cantidad … precio … total", con secciones, subtotales, impuesto (IVA, ITBMS…) y total. */
+function parseGenerico(text){
+  const lines = text.split('\n').map(l=>l.replace(/^\u21B3\s*/, '').replace(/\$\s+/g,'$').replace(/\s+/g,' ').trim()).filter(l=>l && !/^--- P[aá]gina/i.test(l));
+  const field = labels => { const re = new RegExp(`^(?:${labels})\\s*[:.]+\\s*(.+)$`, 'i'); for(const l of lines){ const m = l.match(re); if(m) return m[1].trim(); } return null; };
+  const q = {
+    cliente: field('cliente|raz[oó]n social|empresa'),
+    regarding: field('evento|nombre del evento|proyecto|asunto|referencia|regarding'),
+    recinto: field('lugar|recinto|locaci[oó]n|venue|sede|direcci[oó]n'),
+    numero: field('n-?\\s*ppto|n[°º.o]*\\s*(?:de\\s*)?(?:presupuesto|cotizaci[oó]n)|(?:presupuesto|cotizaci[oó]n)\\s*n[°º.o]*|cotizaci[oó]n n[uú]mero'),
+    eventoTxt: field('fecha del evento|fecha de evento|fecha'),
+    montajeTxt: field('fecha de montaje|montaje'),
+    fechaCotTxt: field('fecha de (?:cotizaci[oó]n|emisi[oó]n|presupuesto)'),
+    validoTxt: null, subtotal: null, itbms: 0, total: null, impuesto: null, formato: 'generico'
+  };
+  if(!q.numero){ const m = lines.join('\n').match(/(?:cotizaci[oó]n|presupuesto|propuesta)\s*(?:n[°º.o]*|#|no\.?)\s*:?\s*([A-Z0-9][\w-]*)/i); if(m) q.numero = m[1]; }
+  if(q.numero) q.numero = q.numero.replace(/^[.:\s]+/, '');
+  // Nombres en MAYÚSCULAS → "Centro Portugues", "San Martinho"
+  const titulo = v => v && v === v.toUpperCase() && /[A-ZÁÉÍÓÚÑ]{3}/.test(v) ? v.toLowerCase().replace(/(^|\s)([a-záéíóúñ])/g, (m, a, c)=>a + c.toUpperCase()).replace(/\s(De|Del|La|Las|Los|Y|E|En)(?=\s)/g, m=>m.toLowerCase()) : v;
+  ['cliente','regarding','recinto'].forEach(k=>{ q[k] = titulo(q[k]); });
+  const isNum = t => /^\(?\$?-?\d[\d.,]*\)?$/.test(t);
+  const isMoney = t => /\$/.test(t) || /[.,]\d{2}$/.test(t);
+  const HEAD = /\b(d[ií]as?|cant(?:idad)?\.?|monto|precio|p\.?\s*unit\.?|unitario|valor|total|importe|qty)\b/gi;
+  const nice = s => s === s.toUpperCase() ? cap(s.toLowerCase()) : s;
+  const groups = []; let g = null, item = null, wrapped = false, pending = [], started = false;
+  const newGroup = name => { const k = norm(name); g = { nombre: GROUP_FIX[k] || nice(name), items: [] }; groups.push(g); };
+  for(const l of lines){
+    if(started && /^(t[ée]rminos|condiciones|nota\b|observaciones)/i.test(l)) break;
+    // subtotal de sección o general
+    const st = l.match(/^sub-?\s*total\s*(.*?)\s*:?\s*(\$?-?[\d.,]+)$/i);
+    if(st){ if(st[1] && g && !/^general$/i.test(st[1])) g.totalPdf = num(st[2]); else q.subtotal = num(st[2]); item = null; pending = []; continue; }
+    // impuesto: "I.V.A (16%) $1.033,18", "ITBMS 7% $35,00"
+    const tx = l.match(/^(i\.?\s*v\.?\s*a\.?|itbms|iva|igv|isv|impuesto[^\d$]*)\s*\(?\s*(\d+(?:[.,]\d+)?)?\s*%?\s*\)?\s*:?\s*(\$?[\d.,]+)$/i);
+    if(tx){ q.itbms = num(tx[3]); q.impuesto = { nombre: /itbms/i.test(tx[1]) ? 'ITBMS' : /i\.?\s*v\.?\s*a|iva/i.test(tx[1]) ? 'IVA' : nice(tx[1].trim()), tasa: tx[2] ? num(tx[2]) : null }; continue; }
+    const tot = l.match(/^total(?:\s+(?:general|a pagar|con\s+\S+))?\s*:?\s*(\$?[\d.,]+)$/i);
+    if(tot && started){ q.total = num(tot[1]); break; }
+    if(/descuento/i.test(l)) continue;
+    const toks = l.split(' ');
+    // fila de encabezado de tabla: "PRODUCCIÓN DÍA CANTIDAD MONTO TOTAL"
+    const heads = l.match(HEAD) || [];
+    if(heads.length >= 2 && !toks.some(isNum)){
+      const name = l.slice(0, l.search(HEAD)).trim();
+      if(name && !/^(descripci[oó]n|concepto|item|[íi]tem|detalle|servicios?|art[íi]culo)$/i.test(name)) newGroup(name);
+      else if(!g) newGroup('Servicios');
+      started = true; item = null; pending = []; continue;
+    }
+    // números al final: [días] [cantidad] precio total
+    let k = toks.length; while(k > 0 && isNum(toks[k-1])) k--;
+    const nums = toks.slice(k), desc = toks.slice(0, k).join(' ');
+    if(nums.length >= 2 && nums.slice(-2).some(isMoney)){
+      started = true;
+      const total = num(nums[nums.length-1]), unit = num(nums[nums.length-2]), pre = nums.slice(0, -2).map(num);
+      let dias = 1, cant;
+      if(pre.length >= 2){ dias = pre[pre.length-2]; cant = pre[pre.length-1]; } else if(pre.length === 1) cant = pre[0]; else cant = unit ? Math.round(total/unit*100)/100 || 1 : 1;
+      let nombre = desc;
+      if(!desc){ nombre = pending.join(' '); pending = []; wrapped = true; }   // descripción en la línea anterior
+      else { if(pending.length && pending[pending.length-1].length < 40) newGroup(pending[pending.length-1]); pending = []; wrapped = false; }
+      if(!nombre) continue;
+      if(!g) newGroup('Servicios');
+      item = { concepto: cleanName(nice(nombre)), detalle:'', det:[], cantidad: dias > 1 ? `${cant} × ${dias} días` : String(cant), qty: cant, unit, factor: dias, total, cortesia: total === 0 };
+      g.items.push(item); continue;
+    }
+    if(!started) continue;
+    if(/^(descripci[oó]n|concepto|detalle|cantidad|cant\.?|precio( unitario)?|p\.? ?unit\.?|unitario|total|monto|d[ií]as?|importe|valor( unitario)?)$/i.test(l)) continue;   // celda de encabezado suelta
+    // texto sin números: continuación de una descripción partida o título/descripción siguiente
+    if(item && wrapped){ item.concepto = cleanName(`${item.concepto} ${l === l.toUpperCase() ? l.toLowerCase() : l}`); wrapped = false; continue; }
+    pending.push(l); if(pending.length > 2) pending.shift();
+  }
+  groups.forEach(gr=>gr.items.forEach(it=>{ it.detalle = it.det.join(' · '); }));
+  q.soloGrupos = false;
+  // Venezuela: IVA 16 %, teléfonos +58, Bs / BCV → se usan las condiciones, la vigencia y el contacto del documento
+  const todo = lines.join('\n');
+  if(q.impuesto?.tasa === 16 || /\(\+58\)|venezuela|caracas|\bbcv\b|bol[ií]vares|\bbs\.?\s/i.test(todo)){
+    q.pais = 'VE';
+    q.telefonos = [...new Set(todo.match(/\(\+58\)\s*\d{3}[-\s]?\d{3,7}/g) || [])];
+    q.condiciones = condicionesDelDocumento(lines);
+    const v = todo.match(/validez de\s*(?:[a-záéíóú]+\s*)?\(?(\d+)\)?\s*d[ií]as?\s*h[aá]biles/i);
+    if(v) q.vigenciaDias = +v[1];
+  }
+  return { q, groups: groups.filter(gr=>gr.items.length) };
+}
+// Condiciones numeradas del propio documento ("1.- Este presupuesto…"), uniendo las líneas partidas
+function condicionesDelDocumento(lines){
+  const ini = lines.findIndex(l=>/^condiciones/i.test(l));
+  if(ini < 0) return null;
+  const out = [];
+  for(const l of lines.slice(ini+1)){
+    if(/^(firma|_{4,}|nota\s*:|\*\s*nota)/i.test(l)) break;
+    const m = l.match(/^(\d{1,2})\s*[.\-)]+\s*-?\s*(.+)$/);
+    if(m) out.push({ t:'', x:m[2].trim() });
+    else if(out.length) out[out.length-1].x += ' ' + l;
+  }
+  return out.length ? out : null;
+}
+// Elige el lector: primero Rentman; si no encuentra rubros, el genérico
+function parseQuote(text){
+  const r = parseRentman(text);
+  if(r.groups.length){ r.q.formato = 'rentman'; return r; }
+  const g = parseGenerico(text);
+  if(g.groups.length) return g;
+  // Respaldo: tablas que llegan una celda por línea (algunos Word/PDF): se juntan los números con su descripción
+  const soloNums = l => l.trim() && l.trim().split(/\s+/).every(t=>/^\(?\$?-?\d[\d.,]*%?\)?$/.test(t));
+  const filas = [];
+  text.split('\n').forEach(l=>{ if(soloNums(l) && filas.length && !/^--- P/.test(filas[filas.length-1])) filas[filas.length-1] += ' ' + l.trim(); else filas.push(l); });
+  return parseGenerico(filas.join('\n'));
+}
+
+/* ——— Leer el archivo: PDF, Excel (.xlsx/.xls/.csv) o Word (.docx) → texto por filas ——— */
+const loadScript = src => new Promise((ok, fail)=>{ if(document.querySelector(`script[src="${src}"]`)) return ok(); const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = fail; document.head.appendChild(s); });
+async function quoteFileText(f){
+  const n = f.name.toLowerCase();
+  if(f.type === 'application/pdf' || n.endsWith('.pdf')) return pdfText(f);
+  if(/\.(xlsx|xlsm|xls|csv|ods)$/.test(n)){
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+    const wb = XLSX.read(await f.arrayBuffer(), { type:'array' });
+    return wb.SheetNames.map(sn=>XLSX.utils.sheet_to_json(wb.Sheets[sn], { header:1, raw:false, blankrows:false })
+      .map(row=>row.map(c=>String(c??'').trim()).filter(Boolean).join(' ')).filter(Boolean).join('\n')).join('\n');
+  }
+  if(n.endsWith('.docx')){
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js');
+    const { value } = await mammoth.convertToHtml({ arrayBuffer: await f.arrayBuffer() });
+    const doc = new DOMParser().parseFromString(value, 'text/html'), out = [];
+    doc.body.querySelectorAll(':scope > p, :scope > h1, :scope > h2, :scope > h3, :scope > ul > li, :scope > ol > li, table tr').forEach(el=>{
+      out.push(el.tagName === 'TR' ? [...el.children].map(td=>td.textContent.trim()).filter(Boolean).join(' ') : el.textContent.trim());
+    });
+    return out.filter(Boolean).join('\n');
+  }
+  throw new Error('formato');
+}
+
+function buildData(parsed, form){
+  const { q, groups } = parsed;
+  const fechaCot = parseDateTxt(q.fechaCotTxt) || new Date();
+  const ve = q.pais === 'VE', vigDias = q.vigenciaDias || 10;
+  const vence = addBusinessDays(fechaCot, vigDias, ve);   // Venezuela: sin feriados de Panamá
+  const fEvento = (form.fecha ? (([y,m,dd])=>new Date(y,m-1,dd))(form.fecha.split('-').map(Number)) : null) || parseDateTxt(q.eventoTxt), fMontaje = parseDateTxt(q.montajeTxt);
+  const diasM = (q.regarding||'').match(/(\d+)\s*d[ií]as?/i);
+  const cliente = form.cliente || guessNames(q).cliente || '';
+  const recinto = form.recinto || q.recinto || '';
+  const evento = sinGrupo(stripName(form.evento || guessNames(q).evento, cliente), groups);
+  const has = re => groups.some(gr=>re.test(norm(gr.nombre)) || gr.items.some(i=>re.test(norm(i.concepto))));
+  const led = groups.flatMap(gr=>gr.items).filter(i=>/pantallas? (de )?leds?\b|led wall|modulo led/i.test(norm(i.concepto)));
+  const ledM2 = led.reduce((a,i)=>a+(/m²/.test(i.cantidad)?i.qty:0),0);
+  const paying = groups.filter(gr=>gr.totalPdf>0 || gr.items.some(i=>i.total>0));
+  const names = paying.map(gr=>gr.nombre.toLowerCase());
+  const listEs = a => a.length<2 ? (a[0]||'') : a.slice(0,-1).join(', ') + ' y ' + a[a.length-1];
+
+  const sol = [];
+  if(led.length) sol.push(`${ledM2?`${ledM2} m² de pantalla LED`:'Las pantallas LED'} mantienen el contenido visible desde todo el salón.`);
+  if(has(/operador de video|switcher/)) sol.push('Un equipo de operadores controla presentaciones, visuales y cambios de señal durante todo el evento.');
+  if(has(/streaming/)) sol.push('La transmisión en vivo lleva el evento a la audiencia remota con cámaras profesionales y operación dedicada.');
+  if(has(/audio|microfono|consola/)) sol.push('El sistema de audio se ajusta al salón para que cada intervención se escuche con claridad.');
+  if(has(/iluminacion|luz|leko/)) sol.push('La iluminación acompaña la puesta en escena y el registro en cámara.');
+  if(has(/montaje|productor|coordinacion|transporte/)) sol.push('Coordinamos producción, montaje y transporte para que su equipo se concentre en el contenido y los invitados.');
+
+  const incluye = groups.map(gr=>{
+    const low = s => /^[A-ZÁÉÍÓÚÑ][a-záéíóúñ]/.test(s) ? s.charAt(0).toLowerCase()+s.slice(1) : s;
+    const it = [...new Set(gr.items.map(i=>low(i.concepto.replace(/\s+P\d.*$/,'').replace(/\s+\d+$/,''))))];
+    const txt = cap(listEs(it.length>4 ? [...it.slice(0,4), 'más'] : it)) + '.';
+    return { titulo: gr.nombre, texto: txt.replace(' y más.', ' y otros elementos.'), cortesia: gr.items.every(i=>i.cortesia) };
+  }).slice(0,6);
+
+  const lugar = recinto || 'Por confirmar';
+  const calendario = [
+    { etapa:'Entrega de contenidos', fecha:'Al menos 48 horas antes del ensayo o inicio del evento', lugar:'—' },
+    { etapa:'Montaje y pruebas', fecha: fMontaje ? cap(longDate(fMontaje)) + ' · horario por confirmar' : 'Por confirmar', lugar },
+    { etapa:'Evento', fecha: fEvento ? cap(longDate(fEvento)) + (diasM?` · ${diasM[1]} ${diasM[1]=='1'?'día':'días'}`:'') : 'Por confirmar', lugar },
+    { etapa:'Desmontaje', fecha:'Al cierre del evento', lugar }
+  ];
+  const necesitamos = ['Orden de compra o carta compromiso firmada', ve ? 'Documento de identidad del representante legal' : 'Aviso de Operaciones y cédula del representante legal', 'Horario del evento y hora de acceso para el montaje', 'Contenidos audiovisuales 48 horas antes del ensayo', 'Contacto responsable en sitio'];
+  if(led.length) necesitamos.splice(4, 0, 'Ubicación de pantallas en el salón');
+
+  // Revisión automática
+  const rev = [];
+  if(!cliente) rev.push({tipo:'Falta', texto:'La cotización no trae el nombre del cliente: complétalo en Datos del evento.'});
+  else if(!q.cliente && cliente === guessNames(q).cliente) rev.push({tipo:'Revisar', texto:`Rentman no trae el campo Cliente: se tomó “${cliente}” del asunto de la cotización. Verifícalo en Datos del evento.`});
+  if(!recinto) rev.push({tipo:'Falta', texto:'Falta el recinto del evento.'});
+  if(!fEvento) rev.push({tipo:'Falta', texto:'No se encontró la fecha del evento.'});
+  if(!fMontaje) rev.push({tipo:'Falta', texto:'No se encontró la fecha de montaje.'});
+  const sumItems = groups.reduce((a,gr)=>a+(gr.totalPdf!=null ? gr.totalPdf : gr.items.reduce((b,i)=>b+(i.total||0),0)),0);
+  const descuento = (q.subtotal!=null && sumItems - q.subtotal > 0.01) ? Math.round((sumItems - q.subtotal)*100)/100 : 0;
+  if(descuento) rev.push({tipo:'Revisar', texto:`Los rubros suman ${money(sumItems)} y el subtotal de Rentman es ${money(q.subtotal)}: se muestra un descuento de ${money(descuento)} para que el total cuadre. Confírmalo.`});
+  else if(q.subtotal!=null && Math.abs(sumItems-q.subtotal)>0.01) rev.push({tipo:'Inconsistencia', texto:`Los rubros leídos suman ${money(sumItems)} y la cotización dice ${money(q.subtotal)}: revisa si quedó algún ítem sin leer.`});
+  const impNombre = q.impuesto?.nombre || 'ITBMS', impTasa = q.impuesto?.tasa ?? 7;
+  if(q.itbms && q.subtotal && Math.abs(q.subtotal*impTasa/100 - q.itbms) > 0.05) rev.push({tipo:'Inconsistencia', texto:`El ${impNombre} (${money(q.itbms)}) no es el ${impTasa}% del subtotal (${money(q.subtotal*impTasa/100)}).`});
+  if(q.formato==='generico') rev.push({tipo:'Revisar', texto:'Esta cotización no es de Rentman: se leyó con el lector genérico. Revisa rubros, cantidades y datos del evento antes de enviar.'});
+  groups.forEach(gr=>gr.items.forEach(i=>{ if(i.unit>0 && i.unit<=1) rev.push({tipo:'Revisar', texto:`“${i.concepto}” tiene un precio simbólico de ${money(i.unit)}. Si es cortesía, déjalo en $0 en Rentman.`}); }));
+  if(q.soloGrupos && S.desglose) rev.push({tipo:'Revisar', texto:'Esta cotización trae montos solo por grupo, así que el desglose por ítem sale vacío.'});
+  const validoR = parseDateTxt(q.validoTxt);
+  if(validoR && validoR.toDateString() !== vence.toDateString()) rev.push({tipo:'Inconsistencia', texto:`Rentman dice válido hasta ${longDate(validoR)}; con ${vigDias} días hábiles vence el ${longDate(vence)}.`});
+  if(ve) rev.push({tipo:'Revisar', texto:`Cotización de Venezuela: se usan las condiciones del documento${q.condiciones?` (${q.condiciones.length})`:''}, la vigencia de ${vigDias} días hábiles (sin feriados) y el contacto de Magnishow Venezuela. Las cláusulas de Panamá no se incluyen.`});
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  if(vence < hoy) rev.push({tipo:'Riesgo', texto:`La vigencia venció el ${longDate(vence)}: actualiza la cotización en Rentman antes de enviar.`});
+  if(fEvento && fEvento < hoy) rev.push({tipo:'Riesgo', texto:'La fecha del evento ya pasó.'});
+  if(fEvento && vence > fEvento) rev.push({tipo:'Sugerencia', texto:'La vigencia termina después del evento: pide confirmación antes del montaje para asegurar equipos y personal.'});
+  if(has(/streaming/)) rev.push({tipo:'Riesgo', texto:'Streaming: confirma con el recinto internet dedicado y una conexión de respaldo.'});
+  if(led.length) rev.push({tipo:'Riesgo', texto:'Pantalla LED: confirma circuito eléctrico suficiente y horario de acceso para el montaje.'});
+  if(!S.renders.length) rev.push({tipo:'Sugerencia', texto:'Sin render: la propuesta usa un bosquejo referencial. Si hay render o fotos del recinto, súbelos.'});
+
+  // Beneficios de contar con Magnishow, según lo cotizado
+  const items = groups.flatMap(gr=>gr.items);
+  const cortesias = items.filter(i=>i.cortesia).map(i=>i.concepto.toLowerCase());
+  const pool = [];
+  if(has(/productor|coordinacion/)) pool.push({t:'Un productor a cargo', x:'Una persona de Magnishow coordina equipos, personal y tiempos de principio a fin; su equipo tiene un solo punto de contacto.'});
+  else pool.push({t:'Un solo punto de contacto', x:'Coordinamos equipos, personal y tiempos para que su equipo hable con una sola persona.'});
+  if(fMontaje && fEvento && fMontaje < fEvento) pool.push({t:'Montaje y pruebas el día anterior', x:`Instalamos y probamos todo el ${longDate(fMontaje)}, para llegar al día del evento con la técnica resuelta.`});
+  if(has(/operador|tecnico/)) pool.push({t:'Operación en sitio todo el evento', x:'Personal técnico propio opera y resuelve en vivo cualquier ajuste de contenido, señal o equipo.'});
+  if(has(/streaming/)) pool.push({t:'Transmisión con operación dedicada', x:'Cámaras, captura y audio de streaming con operadores propios y pruebas de conexión antes de salir en vivo.'});
+  if(led.length) pool.push({t:'Pantallas de inventario propio', x:'Equipos LED revisados antes de cada salida y con piezas de respaldo, sin depender de terceros.'});
+  if(has(/seguro/)) pool.push({t:'Evento con seguro de responsabilidad civil', x:'La póliza incluida protege a su empresa y al recinto durante montaje, evento y desmontaje.'});
+  if(cortesias.length) pool.push({t:'Valor agregado sin costo', x:`Incluimos ${listEs(cortesias)} como cortesía de Magnishow.`});
+  pool.push({t:'Presupuesto claro y trazable', x:'Alcance definido por rubro y sin costos ocultos; cualquier hora adicional se factura solo con su aprobación escrita.'});
+  pool.push({t:'Experiencia regional', x: ve ? 'Producimos eventos corporativos en Venezuela y la región con una misma metodología.' : 'Producimos eventos corporativos en Panamá, Centroamérica y el Caribe con una misma metodología.'});
+  const beneficios = pool.slice(0, 4);
+
+  const itbms = q.itbms || 0;
+  return {
+    cliente: cliente || null, evento: evento || null, recinto: recinto || null, ciudad: ve ? null : 'Ciudad de Panamá', pais: ve ? 'VE' : 'PA', condiciones_doc: ve ? q.condiciones : null,
+    contacto: ve ? { ...CONTACT_VE, line4: q.telefonos?.length ? 'Teléfono ' + q.telefonos.join(' · ') : '' } : CONTACT,
+    servicio: has(/streaming/) ? 'producción audiovisual y streaming' : 'producción audiovisual',
+    numero_cotizacion: q.numero, fecha_emision: longDate(fechaCot), vigencia_hasta: longDate(vence),
+    montaje: { fecha: longDate(fMontaje), fecha_corta: shortDate(fMontaje) },
+    evento_fecha: { fecha: longDate(fEvento), fecha_corta: shortDate(fEvento), dias: diasM ? +diasM[1] : null },
+    grupos: groups.map(gr=>({ nombre: gr.nombre, subtotal: gr.totalPdf ?? null, items: gr.items.map(i=>({concepto:i.concepto, detalle:i.detalle, cantidad:i.cantidad, total:i.total, cortesia:i.cortesia})) })),
+    itbms_aplica: itbms > 0, itbms_monto: itbms, total_cotizacion: q.total, descuento, impuesto_nombre: impNombre, beneficios,
+    resumen: `Presentamos la ${has(/streaming/)?'producción audiovisual y transmisión':'producción audiovisual'} ${evento?`de ${evento}`:'del evento'}${recinto?` en ${recinto}`:''}${fEvento?`, el ${longDate(fEvento)}`:''}. La solución integra ${listEs(names)}${ledM2?`, con ${ledM2} m² de pantalla LED`:''}.`,
+    solucion_subtitulo: 'lo que vamos a producir',
+    solucion_texto: sol.slice(0,4).join(' '),
+    incluye, calendario, necesitamos,
+    ajuste_alcance: form.notas || null,
+    revision: rev,
+    _raw: parsed
+  };
+}
+
+/* ——— Inventario Magnishow para el bosquejo ———
+   Cada equipo: nombre, re (cómo aparece en Rentman, en minúsculas y sin tildes), tipo, w y h en metros (frente),
+   y draw(x, piso, escala) que devuelve el SVG con la base apoyada en el piso. Agregar equipos nuevos aquí. */
+const INVENTARIO = [
+  { nombre:'Bose L1 Pro16', re:/l1 ?pro ?16/, tipo:'audio', w:0.36, h:2.02,
+    draw(x, f, sc){
+      const W = this.w*sc, H = this.h*sc, bh = 0.70*sc, cw = Math.max(5, 0.08*sc), cx = x + W/2, top = f - H;
+      const arr = (H - bh) * 0.62;   // arreglo de 16 bocinas en la parte alta de la columna
+      let o = `<rect x="${cx-cw/2}" y="${top}" width="${cw}" height="${H-bh}" fill="#1a1a1a" stroke="#888" stroke-width="1.5"/>`;
+      for(let k=0; k<16; k++) o += `<rect x="${cx-cw*0.28}" y="${top + arr*0.04 + k*arr*0.95/16}" width="${cw*0.56}" height="${Math.max(1.5, arr/16*0.45)}" fill="#555"/>`;
+      o += `<rect x="${cx-cw*0.32}" y="${top+arr*0.47}" width="${cw*0.64}" height="2" fill="#ccc"/>`;   // logo
+      o += `<line x1="${cx-cw/2}" y1="${top+arr}" x2="${cx+cw/2}" y2="${top+arr}" stroke="#888" stroke-width="1.5"/>`;   // unión con la extensión
+      o += `<rect x="${x}" y="${f-bh}" width="${W}" height="${bh}" fill="#1a1a1a" stroke="#888" stroke-width="2"/>`;   // subwoofer
+      o += `<rect x="${cx-cw/2}" y="${f-bh}" width="${cw}" height="${bh}" fill="#141414" stroke="#666" stroke-width="1"/>`;   // ranura frontal
+      return o;
+    } },
+  { nombre:'Allen & Heath SQ-7', re:/sq-? ?7\b/, tipo:'consola', w:0.88, h:0.21, faders:16, pantalla:0.42, draw(x, f, sc){ return dibujaConsola(this, x, f, sc); } },
+  { nombre:'Allen & Heath QU-16', re:/qu-? ?16|allen/, tipo:'consola', w:0.44, h:0.17, faders:8, pantalla:0.62, draw(x, f, sc){ return dibujaConsola(this, x, f, sc); } },
+  { nombre:'Sennheiser e835', re:/e ?835/, tipo:'mic', w:0.19, h:0.05,
+    draw(x, f, sc){   // micrófono de mano acostado sobre la mesa
+      const w = Math.max(10, this.w*sc), h = Math.max(4, this.h*sc), cy = f - h/2;
+      return `<polygon points="${x},${cy-h*0.3} ${x+w*0.68},${cy-h*0.5} ${x+w*0.68},${cy+h*0.5} ${x},${cy+h*0.3}" fill="#4a5560"/><circle cx="${x+w*0.82}" cy="${cy}" r="${h*0.75}" fill="#222" stroke="#999" stroke-width="1"/>`;
+    } },
+  // NEXO: sistema para audiencias de más de 300 personas. Si vienen PS15 y LS18 juntos, el PS15 va en tubo sobre el LS18.
+  { nombre:'NEXO LS18', re:/ls ?18/, tipo:'audio', w:0.715, h:0.554,
+    draw(x, f, sc){
+      const w = this.w*sc, h = this.h*sc, top = f - h, g = w*0.13;
+      let o = `<rect x="${x}" y="${top}" width="${w}" height="${h}" fill="#1a1a1a" stroke="#888" stroke-width="2"/>`;
+      [x + w*0.06, x + w*0.94 - g].forEach(gx=>{ o += `<rect x="${gx}" y="${top+h*0.1}" width="${g}" height="${h*0.82}" fill="#111" stroke="#555" stroke-width="1"/>`;
+        for(let yy=top+h*0.16; yy<top+h*0.88; yy+=Math.max(4,h*0.08)) for(let xx=gx+g*0.25; xx<gx+g; xx+=g*0.5) o += `<circle cx="${xx}" cy="${yy}" r="${Math.max(1,g*0.1)}" fill="#3a3a3a"/>`; });
+      return o;
+    } },
+  { nombre:'NEXO PS15', re:/ps ?15/, tipo:'audio', w:0.438, h:0.70, base:1.25, alto:1.95,   // base: altura del trípode cuando va solo
+    caja(x, bottom, sc){
+      const w = this.w*sc, h = this.h*sc, top = bottom - h;
+      return `<rect x="${x}" y="${top}" width="${w}" height="${h}" fill="#1a1a1a" stroke="#888" stroke-width="2"/><rect x="${x+w*0.06}" y="${top+h*0.05}" width="${w*0.88}" height="${h*0.88}" fill="#151515"/><rect x="${x+w*0.38}" y="${top+h*0.86}" width="${w*0.24}" height="${Math.max(3,h*0.045)}" fill="#ccc"/>`;
+    },
+    draw(x, f, sc){   // solo, sobre trípode
+      const w = this.w*sc, b = f - this.base*sc, cx = x + w/2;
+      return `<rect x="${cx-1.5}" y="${b}" width="3" height="${f-b}" fill="#666"/><line x1="${cx}" y1="${f-0.5*sc}" x2="${cx-w*0.6}" y2="${f}" stroke="#666" stroke-width="2"/><line x1="${cx}" y1="${f-0.5*sc}" x2="${cx+w*0.6}" y2="${f}" stroke="#666" stroke-width="2"/>` + this.caja(x, b, sc);
+    } },
+  { nombre:'Yamaha DBR12', re:/dbr ?12|yamaha/, tipo:'monitor', w:0.366, h:0.60, base:1.15, alto:1.75,
+    draw(x, f, sc){   // en trípode
+      const w = this.w*sc, h = this.h*sc, b = f - this.base*sc, cx = x + w/2, top = b - h;
+      let o = `<rect x="${cx-1.5}" y="${b}" width="3" height="${f-b}" fill="#666"/><line x1="${cx}" y1="${f-0.45*sc}" x2="${cx-w*0.6}" y2="${f}" stroke="#666" stroke-width="2"/><line x1="${cx}" y1="${f-0.45*sc}" x2="${cx+w*0.6}" y2="${f}" stroke="#666" stroke-width="2"/>`;
+      o += `<rect x="${x}" y="${top}" width="${w}" height="${h}" fill="#1a1a1a" stroke="#888" stroke-width="2"/><circle cx="${cx}" cy="${top+h*0.6}" r="${w*0.36}" fill="#141414" stroke="#444" stroke-width="1"/><circle cx="${cx}" cy="${top+h*0.86}" r="${Math.max(2,w*0.06)}" fill="#ccc"/>`;
+      return o;
+    } },
+  { nombre:'Silla Tiffany', re:/tiffany|chiavari/, tipo:'silla', w:0.40, h:0.92,
+    draw(x, f, sc, color){   // vista frontal: patas, asiento con cojín y respaldo de barrotes
+      const w = this.w*sc, h = this.h*sc, seat = f - 0.46*sc, top = f - h, p = Math.max(1.5, 0.03*sc), c = color || '#eeeeee';
+      let o = `<rect x="${x}" y="${top}" width="${p}" height="${f-top}" fill="${c}"/><rect x="${x+w-p}" y="${top}" width="${p}" height="${f-top}" fill="${c}"/>`;   // postes
+      o += `<rect x="${x}" y="${top}" width="${w}" height="${p}" fill="${c}"/><rect x="${x}" y="${top+(seat-top)*0.35}" width="${w}" height="${p*0.8}" fill="${c}"/><rect x="${x}" y="${top+(seat-top)*0.62}" width="${w}" height="${p*0.7}" fill="${c}"/>`;   // travesaños del respaldo
+      for(let k=1; k<5; k++) o += `<rect x="${x+k*w/5-p*0.35}" y="${top}" width="${p*0.7}" height="${(seat-top)*0.35}" fill="${c}"/>`;   // barrotes
+      o += `<rect x="${x-p*0.5}" y="${seat-p*2.2}" width="${w+p}" height="${p*2.2}" fill="#f7f7f7" stroke="${c}" stroke-width="1"/>`;   // cojín
+      o += `<rect x="${x}" y="${seat+(f-seat)*0.55}" width="${w}" height="${p*0.8}" fill="${c}"/>`;   // travesaño de patas
+      return o;
+    } },
+];
+// PS15 en tubo sobre LS18 (como se monta en eventos grandes)
+const NEXO_STACK = { nombre:'NEXO PS15 + LS18', tipo:'audio', w:0.715, h:0.554+0.85+0.70,
+  draw(x, f, sc){
+    const sub = INVENTARIO.find(m=>m.nombre==='NEXO LS18'), top = INVENTARIO.find(m=>m.nombre==='NEXO PS15');
+    const subTop = f - sub.h*sc, boxBottom = subTop - 0.85*sc, cx = x + sub.w*sc/2;
+    return sub.draw(x, f, sc) + `<rect x="${cx-2}" y="${boxBottom}" width="4" height="${subTop-boxBottom}" fill="#666"/>` + top.caja(cx - top.w*sc/2, boxBottom, sc);
+  } };
+// Consola en vista frontal inclinada: cuerpo negro, pantalla táctil y faders
+function dibujaConsola(m, x, f, sc){
+  const w = m.w*sc, h = Math.max(8, m.h*sc), top = f - h;
+  let o = `<polygon points="${x},${f} ${x+w},${f} ${x+w*0.95},${top} ${x+w*0.05},${top}" fill="#1a1a1a" stroke="#888" stroke-width="1.5"/>`;
+  o += `<rect x="${x+w*m.pantalla}" y="${top+h*0.12}" width="${w*0.16}" height="${h*0.32}" fill="#6fa8dc"/>`;
+  for(let k=0; k<m.faders; k++) o += `<rect x="${x+w*(0.08 + k*0.84/m.faders)}" y="${top+h*0.55}" width="${Math.max(1.5,w*0.02)}" height="${h*0.35}" fill="#888"/>`;
+  return o;
+}
+// Parlante sin modelo en el inventario: caja sobre trípode
+const PARLANTE_GENERICO = { nombre:'Audio', tipo:'audio', w:0.45, h:2.1,
+  draw(x, f, sc){
+    const w = this.w*sc, h = this.h*sc;
+    let o = `<rect x="${x+w*0.3}" y="${f-h*0.25}" width="${w*0.4}" height="${h*0.25}" fill="#333"/><rect x="${x}" y="${f-h}" width="${w}" height="${h*0.75}" fill="#1c1c1c" stroke="#777" stroke-width="2"/>`;
+    for(let d=1; d<7; d++) o += `<circle cx="${x+w/2}" cy="${f-h+d*h*0.75/7}" r="${Math.max(2,w*0.18)}" fill="#555"/>`;
+    return o;
+  } };
+const modeloDe = concepto => INVENTARIO.find(m=>m.re.test(norm(concepto)));
+
+/* Bosquejo referencial dibujado en código a partir de los rubros */
+function sketchSvg(d, t){
+  const items = d._raw.groups.flatMap(g=>g.items.map(i=>({...i, g:norm(g.nombre)})));
+  const els = [];
+  const booths = [];
+  const re = /(?:(\d+)\s*)?(pantallas?|t[oó]tems?|dj ?booth|booth)(\s+curvas?)?\s*(?:de\s*)?(\d+(?:[.,]\d+)?)\s*m?\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*m?(?:\s*a\s*(\d+(?:[.,]\d+)?)\s*m(?:etros?)?\s*de\s*altura)?/ig;
+  items.forEach(i=>{ (i.det||[]).forEach(line=>{ let m; re.lastIndex = 0; while((m = re.exec(line))){
+    const a = num(m[4]), b = num(m[5]);
+    // DJ booth: pantalla individual al frente de la pantalla principal, apoyada en el piso (alto = lado menor)
+    if(/booth/i.test(m[2])){ for(let k=0;k<+(m[1]||1);k++) booths.push({ w:Math.max(a,b), h:Math.min(a,b) }); continue; }
+    for(let k=0;k<+(m[1]||1);k++) els.push({ type: /t[oó]tem/i.test(m[2]) ? 'totem' : 'screen', w:a, h:b, elev: m[6]!=null ? num(m[6]) : null, curva: !!m[3] || /curv/i.test(line) });
+  } }); });
+  // Monitores de DJ ("+ 2 Monitores DJ"): Yamaha DBR12 en trípode a los lados del booth
+  const monTxt = items.flatMap(i=>[i.concepto, ...(i.det||[])]).join(' ');
+  const monM = monTxt.match(/(\d+)\s*monitor(?:es)?\s*(?:de\s*)?dj/i);
+  const monitores = monM ? Math.min(4, +monM[1]) : 0;
+  const yamaha = INVENTARIO.find(m=>m.nombre==='Yamaha DBR12');
+  // Audiencia ("Audio para 500 personas"): sin modelo de parlante, más de 300 personas = NEXO PS15 + LS18; si no, Bose L1 Pro16
+  const persM = monTxt.match(/para\s+(\d+)\s+personas/i);
+  const personas = persM ? +persM[1] : 0;
+  if(!els.length){
+    const area = items.filter(i=>/pantallas? (de )?leds?\b/i.test(norm(i.concepto)) && /m²/.test(i.cantidad)).reduce((a,i)=>a+i.qty,0);
+    if(area){ const w = Math.round(Math.sqrt(area*16/9)*2)/2; els.push({type:'screen', w, h: Math.round(area/w*2)/2}); }
+  }
+  let lights = items.filter(i=>/luz|leko|par led|barra|movil|wash|beam|cabeza/.test(norm(i.concepto))).reduce((a,i)=>a+i.qty,0);
+  const lucesGenericas = !lights && items.some(i=>/iluminacion/.test(norm(i.concepto)));   // "Alquiler de iluminación" sin equipos: 6 luces referenciales
+  if(lucesGenericas) lights = 6;
+  const stream = items.some(i=>/streaming/.test(i.g) || /streaming|camara/.test(norm(i.concepto)));
+  const SPK = /bose|l1 pro|parlante|bocina|altavoz|line ?array|speaker|subwoofer|cabina|columna|\bjbl\b|\bqsc\b|\brcf\b/;
+  const rawSpk = items.filter(i=>SPK.test(norm(i.concepto)) || modeloDe(i.concepto)?.tipo==='audio')
+    .flatMap(i=>Array.from({length: Math.max(1, Math.round(i.qty))}, ()=>modeloDe(i.concepto) || PARLANTE_GENERICO));
+  if(!rawSpk.length && items.some(i=>/^audio|sistema de audio|audio profesional|sonido/.test(norm(i.concepto)))){
+    const porNombre = n => INVENTARIO.find(m=>m.nombre===n);
+    if(personas > 300 || items.some(i=>/nexo/.test(norm(i.concepto)))) rawSpk.push(porNombre('NEXO PS15'), porNombre('NEXO LS18'), porNombre('NEXO PS15'), porNombre('NEXO LS18'));
+    else rawSpk.push(porNombre('Bose L1 Pro16'), porNombre('Bose L1 Pro16'));
+  }
+  // cada PS15 con un LS18 se dibuja como un conjunto (PS15 en tubo sobre el LS18)
+  const nPar = Math.min(rawSpk.filter(m=>m.nombre==='NEXO PS15').length, rawSpk.filter(m=>m.nombre==='NEXO LS18').length);
+  let usaPS = 0, usaLS = 0;
+  const spkList = rawSpk.flatMap(m=>{
+    if(m.nombre==='NEXO PS15' && usaPS < nPar){ usaPS++; return [NEXO_STACK]; }
+    if(m.nombre==='NEXO LS18' && usaLS < nPar){ usaLS++; return []; }
+    return [m];
+  }).slice(0, 6);
+  const speakers = spkList.length;
+  // Mesa de audio: consola y micrófonos de mano
+  const conItem = items.find(i=>modeloDe(i.concepto)?.tipo==='consola' || (/consola|mezcladora|mixer/.test(norm(i.concepto)) && !/video|atem|switch/.test(norm(i.concepto))));
+  const consola = conItem ? (modeloDe(conItem.concepto) || { nombre:'Consola de audio', tipo:'consola', w:0.6, h:0.15, draw(x,f,sc){ const w=this.w*sc, h=Math.max(8,this.h*sc); return `<rect x="${x}" y="${f-h}" width="${w}" height="${h}" fill="#1a1a1a" stroke="#888" stroke-width="1.5"/>`; } }) : null;
+  const mics = items.filter(i=>modeloDe(i.concepto)?.tipo==='mic' || /microfon|mic\b/.test(norm(i.concepto)))
+    .flatMap(i=>Array.from({length: Math.max(1, Math.round(i.qty))}, ()=>modeloDe(i.concepto) || { nombre:'Micrófono', tipo:'mic', w:0.19, h:0.05, draw: INVENTARIO.find(m=>m.tipo==='mic').draw })).slice(0, 4);
+  const MESA_H = 0.75, mesaW = (consola || mics.length) ? Math.max(1.0, (consola?consola.w:0) + mics.length*0.24 + 0.35) : 0;
+  // Sillas ("100 sillas tiffanys color dorado"): una fila referencial al frente
+  const silla = INVENTARIO.find(m=>m.tipo==='silla');
+  const sillaTxt = items.filter(i=>silla.re.test(norm(i.concepto)) || (i.det||[]).some(t=>silla.re.test(norm(t)))).flatMap(i=>[i.concepto, ...(i.det||[])]).join(' ');
+  const nSillas = sillaTxt ? (+(sillaTxt.match(/(\d+)\s*sillas?/i)||[])[1] || items.filter(i=>silla.re.test(norm(i.concepto))).reduce((a,i)=>a+i.qty,0) || 1) : 0;
+  const sillaColor = /dorad/i.test(sillaTxt) ? ['#c9a227','dorado'] : /platead/i.test(sillaTxt) ? ['#b8b8b8','plateado'] : /negr/i.test(sillaTxt) ? ['#555555','negro'] : /transparent|cristal/i.test(sillaTxt) ? ['#9fd3e6','transparente'] : ['#eeeeee','blanco'];
+  const filaSillas = Math.min(nSillas, 12), sillasW = filaSillas ? filaSillas*silla.w + (filaSillas-1)*0.18 : 0;
+  if(!els.length && !lights && !speakers && !mesaW && !booths.length && !nSillas) return null;
+
+  const screens = els.filter(e=>e.type==='screen').sort((a,b)=>b.w-a.w), totems = els.filter(e=>e.type==='totem');
+  const row = []; screens.forEach((s,i)=> i%2 ? row.unshift(s) : row.push(s));
+  const tl = totems.slice(0, Math.ceil(totems.length/2)), tr = totems.slice(Math.ceil(totems.length/2));
+  const seq = [...tl, ...row, ...tr];
+  const GAP = 0.8, ELEV = 1, SPH = Math.max(0, ...spkList.map(m=>m.h));
+  const spL = spkList.filter((_,i)=>i%2===0).reverse(), spR = spkList.filter((_,i)=>i%2===1);   // alterna lados para que quede simétrico
+  const spaceSpk = list => list.length ? list.reduce((a,m)=>a+m.w,0) + (list.length-1)*0.3 + GAP : 0;
+  const seqW = seq.reduce((a,e)=>a+e.w,0) + GAP*Math.max(0,seq.length-1);
+  const boothW = Math.max(booths.reduce((a,b)=>a+b.w,0) + (monitores ? 2*(yamaha.w+0.4) : 0), sillasW);
+  const Wm = (Math.max(seqW, boothW) || (speakers || mesaW ? 3 : 6)) + spaceSpk(spL) + spaceSpk(spR) + (mesaW ? mesaW + GAP : 0);
+  const Hm = Math.max(3, SPH, ...seq.map(e=> e.type==='screen' ? e.h+(e.elev ?? ELEV) : e.h)) + 0.8;
+  const W = 1200, H = 520, FLOOR = 470, sc = Math.min((stream?860:1000)/Wm, (FLOOR-70)/Hm);
+  let x = (W - Wm*sc)/2;
+  const F = `font-family="Poppins, Arial, sans-serif"`;
+  let s = `<rect width="${W}" height="${H}" fill="#000"/>`;
+  for(let i=20;i<W;i+=26) s += `<line x1="${i}" y1="0" x2="${i}" y2="${FLOOR}" stroke="#151515" stroke-width="10"/>`;
+  s += `<rect x="0" y="${FLOOR}" width="${W}" height="${H-FLOOR}" fill="#222"/>`;
+  // end=true pone el texto a la izquierda del número (para etiquetas del lado izquierdo)
+  // si el texto no cabe a la izquierda, va en el piso, hacia la derecha
+  const label = (n, lx, ly, txt, end) => end && lx - 18 - String(txt).length*7.6 < 6 ? labelTxt(n, Math.max(lx, 17), FLOOR + 25, txt, false) : labelTxt(n, lx, ly, txt, end);
+  const labelTxt = (n, lx, ly, txt, end) => `<circle cx="${lx}" cy="${ly}" r="11" fill="#fff"/><text x="${lx}" y="${ly+4.5}" text-anchor="middle" font-size="13" font-weight="700" ${F} fill="#000">${n}</text><text x="${end ? lx-18 : lx+18}" y="${ly+5}" font-size="14" ${F} fill="#fff"${end?' text-anchor="end"':''}>${esc(txt)}</text>`;
+  // luces
+  if(lights){
+    s += `<rect x="60" y="34" width="${W-120}" height="8" fill="#555"/>`;
+    const n = Math.min(lights, 10);
+    for(let i=0;i<n;i++){ const lx = 100 + i*((W-200)/Math.max(1,n-1)); s += `<polygon points="${lx-6},50 ${lx+6},50 ${lx+50},${FLOOR} ${lx-50},${FLOOR}" fill="#fff" opacity=".10"/><rect x="${lx-8}" y="42" width="16" height="14" fill="#888"/>`; }
+  }
+  const nScreen = 1, nTotem = screens.length ? 2 : 1, nLight = 1 + (screens.length?1:0) + (totems.length?1:0), nAudio = nLight + (lights?1:0);
+  // parlantes (columna sobre el piso) a cada lado de las pantallas
+  const spkLabel = spkList.length && spkList.every(m=>m===spkList[0]) ? spkList[0].nombre : 'Audio';
+  const drawSpk = list => { list.forEach((m,k)=>{ s += m.draw(x, FLOOR, sc); if(k===0 && !labeledA){ s += label(nAudio, x + m.w*sc/2, FLOOR - (m.alto || m.h)*sc - 22, spkLabel, true); labeledA = true; } x += (m.w + 0.3)*sc; }); if(list.length) x += (GAP-0.3)*sc; };
+  let labeledA = false;
+  if(!seq.length && speakers) x = (W - Wm*sc)/2;
+  drawSpk(spL);
+  let labeledS = false, labeledT = false, scrL = Infinity, scrR = -Infinity;
+  const x0 = x;
+  seq.forEach(e=>{
+    const w = e.w*sc, h = e.h*sc, bottom = e.type==='screen' ? FLOOR - (e.elev ?? ELEV)*sc : FLOOR, top = bottom - h;
+    if(e.type==='screen') s += `<rect x="${x+w*0.15}" y="${bottom}" width="${w*0.7}" height="${FLOOR-bottom}" fill="#333"/>`;
+    if(e.curva){ const c = Math.min(h*0.12, 0.35*sc);   // curva: bordes superior e inferior en arco
+      s += `<path d="M${x},${top} Q${x+w/2},${top+c*2} ${x+w},${top} L${x+w},${bottom} Q${x+w/2},${bottom+c*2} ${x},${bottom} Z" fill="${t.screen || t.bg}" stroke="#000" stroke-width="3"/>`;
+    } else s += `<rect x="${x}" y="${top}" width="${w}" height="${h}" fill="${t.screen || t.bg}" stroke="#000" stroke-width="3"/>`;
+    if(e.type==='screen'){ scrL = Math.min(scrL, x); scrR = Math.max(scrR, x+w); }
+    if(w > 90) s += `<text x="${x+w/2}" y="${top+h/2+8}" text-anchor="middle" font-size="${Math.min(30, w/7)}" font-weight="700" font-family="Oswald, 'Arial Narrow', sans-serif" fill="${t.screenInk || t.ink}" letter-spacing="1">CONTENIDO</text>`;
+    s += `<line x1="${x}" y1="${top-14}" x2="${x+w}" y2="${top-14}" stroke="#fff" stroke-width="1.5"/><line x1="${x}" y1="${top-20}" x2="${x}" y2="${top-8}" stroke="#fff"/><line x1="${x+w}" y1="${top-20}" x2="${x+w}" y2="${top-8}" stroke="#fff"/>`;
+    s += `<text x="${x+w/2}" y="${top-22}" text-anchor="middle" font-size="14" ${F} fill="#fff">${String(e.w).replace('.',',')} m × ${String(e.h).replace('.',',')} m</text>`;
+    if(e.type==='screen' && !labeledS){ s += label(nScreen, x+10, top+22, e.curva ? 'Pantalla LED curva' : 'Pantalla LED'); labeledS = true; }
+    if(e.type==='totem' && !labeledT){ s += label(nTotem, x+4, top-48, 'Tótems LED'); labeledT = true; }
+    x += w + GAP*sc;
+  });
+  if(!seq.length && (speakers || booths.length)) x += Math.max(3, boothW)*sc;
+  // DJ booth al frente de la pantalla, centrado, con monitores Yamaha a los lados
+  if(booths.length){
+    const cx = scrR > scrL ? (scrL + scrR)/2 : x0 + (x - x0)/2;
+    const bw = booths.reduce((a,b)=>a+b.w,0)*sc, bh = Math.max(...booths.map(b=>b.h))*sc, bx = cx - bw/2;
+    s += `<rect x="${bx}" y="${FLOOR-bh}" width="${bw}" height="${bh}" fill="${t.screen || t.bg}" stroke="#000" stroke-width="3"/>`;
+    s += `<text x="${cx}" y="${FLOOR-bh/2+6}" text-anchor="middle" font-size="${Math.min(18, bh*0.5)}" font-weight="700" font-family="Oswald, 'Arial Narrow', sans-serif" fill="${t.screenInk || t.ink}" letter-spacing="1">DJ</text>`;
+    if(monitores){ [bx - (yamaha.w+0.25)*sc, bx + bw + 0.25*sc].slice(0, monitores).forEach(mx=>{ s += yamaha.draw(mx, FLOOR, sc); }); }
+    const txt = `DJ Booth LED ${booths.map(b=>`${String(b.w).replace('.',',')} m × ${String(b.h).replace('.',',')} m`).join(' + ')}` + (monitores ? ` · ${monitores} monitores Yamaha DBR12` : '');
+    s += label(nAudio + (speakers?1:0) + (mesaW?1:0), bx + bw - 11, FLOOR + 25, txt, true);
+  }
+  drawSpk(spR);
+  if(mesaW){
+    const mw = mesaW*sc, mh = MESA_H*sc, top = FLOOR - mh;
+    s += `<rect x="${x}" y="${top}" width="${mw}" height="${Math.max(3,0.04*sc)}" fill="#666"/><rect x="${x+mw*0.06}" y="${top}" width="${Math.max(2,0.04*sc)}" height="${mh}" fill="#555"/><rect x="${x+mw*0.94-Math.max(2,0.04*sc)}" y="${top}" width="${Math.max(2,0.04*sc)}" height="${mh}" fill="#555"/>`;
+    let mx = x + 0.15*sc;
+    if(consola){ s += consola.draw(mx, top, sc); mx += (consola.w + 0.15)*sc; }
+    mics.forEach(m=>{ s += m.draw(mx, top, sc); mx += 0.24*sc; });
+    const partes = [consola?.nombre, mics.length ? `${mics.length} ${mics.length>1?'micrófonos':'micrófono'}${mics[0].nombre!=='Micrófono'?' '+mics[0].nombre:''}` : null].filter(Boolean);
+    s += label(nAudio + (speakers?1:0), x + mw - 11, FLOOR + 25, partes.join(' · '), true);
+  }
+  if(lights) s += label(nLight, 70, 74, lucesGenericas ? 'Iluminación' : `Iluminación (${lights})`);
+  if(stream){
+    [80, W-80].forEach(cx=>{ s += `<line x1="${cx}" y1="${FLOOR-40}" x2="${cx-22}" y2="${FLOOR+30}" stroke="#aaa" stroke-width="3"/><line x1="${cx}" y1="${FLOOR-40}" x2="${cx+22}" y2="${FLOOR+30}" stroke="#aaa" stroke-width="3"/><rect x="${cx-24}" y="${FLOOR-66}" width="40" height="26" fill="#ddd"/><rect x="${cx+16}" y="${FLOOR-60}" width="14" height="14" fill="#999"/>`; });
+    s += `<text x="${W-80}" y="${FLOOR+44}" text-anchor="end" dx="40" font-size="13" ${F} fill="#fff">Cámaras de streaming</text>`;
+  }
+  if(filaSillas){
+    let sx = W/2 - sillasW*sc/2;
+    for(let k=0; k<filaSillas; k++){ s += silla.draw(sx, FLOOR, sc, sillaColor[0]); sx += (silla.w + 0.18)*sc; }
+    s += labelTxt(nAudio + (speakers?1:0) + (mesaW?1:0) + (booths.length?1:0), W/2 - sillasW*sc/2 + 11, FLOOR - silla.h*sc - 20, `${nSillas} ${nSillas>1?'sillas':'silla'} Tiffany ${sillaColor[1]}${nSillas > filaSillas ? ' (fila referencial)' : ''}`, false);
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${s}</svg>`;
+}
+
+function readForm(){ return { cliente:$('fCliente').value.trim(), evento:$('fEvento').value.trim(), recinto:$('fRecinto').value.trim(), fecha:$('fFecha').value, notas:$('context').value.trim() }; }
+// Quita el nombre del cliente de un texto (el evento nunca repite el cliente)
+function stripName(txt, name){
+  if(!txt || !name) return txt || '';
+  const re = new RegExp(name.trim().replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'ig');
+  return txt.replace(re, ' ').replace(/\s*([,·\-–])\s*(?:[,·\-–]\s*)+/g, '$1 ').replace(/^[\s,·\-–:]+|[\s,·\-–:]+$/g, '').replace(/\s{2,}/g, ' ').trim();
+}
+function guessNames(q){
+  const reg = (q.regarding||'').replace(/:\s*\d+\s*d[ií]as?\s*$/i,'').trim();
+  // Asunto en partes ("Cliente - Evento - Recinto" o "Cliente, Audio, 21 y 22 de noviembre")
+  const isDate = s => /\d/.test(s) && MESES.some(m=>norm(s).includes(m));
+  const isService = s => norm(s).split(/\s*(?:,|\by\b|\+|&)\s*/).filter(Boolean).every(w=>KNOWN_GROUPS.includes(w) || KNOWN_GROUPS.includes(w+'s'));
+  const segs = reg.split(/\s+-\s+|\s*,\s*/).map(s=>s.trim())
+    .filter(s=>!(/^\d/.test(s) && isDate(s)))   // pieza que es solo fecha: "21 y 22 de Noviembre"
+    .map(s=>s.replace(/\s+\d{1,2}\s+(de\s+)?[a-záéíóú]+(\s+(de\s+)?\d{4})?$/i,'').trim())   // fecha al final: "Renaissance 19 de noviembre"
+    .filter(Boolean);
+  const rec = norm(q.recinto);
+  const rest = segs.filter(s=>!rec || norm(s)!==rec);
+  const cliente = q.cliente || rest[0] || segs[0] || '';
+  const parteCliente = s => { const a = norm(s), c = norm(cliente); return !!c && (c.includes(a) || a.includes(c)); };   // "Riki" es parte de "Riki Silvera"
+  const evento = stripName((q.cliente ? rest : rest.slice(1)).filter(s=>!isService(s) && !parteCliente(s)).join(' - '), cliente);
+  return { cliente, evento: norm(evento)===norm(cliente) ? '' : evento };
+}
+const isoDate = d => d ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` : '';
+// "Sillas Tiffany" es un grupo de la cotización, no el nombre del evento
+const sinGrupo = (evento, groups) => { const k = x => norm(x).replace(/s\b/g, ''); return evento && groups.some(gr=>k(gr.nombre) === k(evento)) ? '' : evento; };
+function fillForm(parsed){
+  const q = parsed.q, g = guessNames(q);
+  $('fCliente').value = g.cliente;
+  $('fEvento').value = sinGrupo(g.evento, parsed.groups);
+  $('fRecinto').value = q.recinto || '';
+  $('fFecha').value = isoDate(parseDateTxt(q.eventoTxt));
+}
+
+$('go').onclick = ()=>{
+  const text = S.quoteText || $('quotePaste').value.trim();
+  if(text.length < 80){ status('Falta la cotización: sube el PDF o pega su texto.', true); return; }
+  const parsed = parseQuote(text);
+  if(!parsed.groups.length){ status('No se encontraron rubros con precio. Revisa que el documento tenga una tabla con descripción y montos, o pega el texto completo.', true); return; }
+  if(!S.quoteText && !$('fEvento').value && !$('fCliente').value) fillForm(parsed);
+  S.data = buildData(parsed, readForm());
+  const veDoc = S.data.pais === 'VE';
+  $('clausesHelp').textContent = veDoc ? 'Cotización de Venezuela: la propuesta usa las condiciones del propio documento. Esta lista de Panamá no se incluye.' : 'Condiciones generales de servicio de Magnishow. Todas vienen marcadas; desmarca solo las que no apliquen.';
+  $('clauses').style.opacity = veDoc ? '.35' : ''; $('clauses').style.pointerEvents = veDoc ? 'none' : '';
+  S.sketch = S.renders.length ? null : sketchSvg(S.data, theme());
+  extraReview = [];
+  if(!S.renders.length && !S.sketch) addReview({tipo:'Falta', texto:'No hay elementos para dibujar el bosquejo: sube un render.'});
+  renderPages();
+  status(`Propuesta lista: ${parsed.groups.reduce((a,g)=>a+g.items.length,0)} rubros leídos. Revisa las alertas antes de descargar.`);
+};
+
+/* ——— Computation ——— */
+function compute(d){
+  const groups = (d.grupos||[]).map(g=>{
+    const items = (g.items||[]).map(i=>({...i, total: i.cortesia ? 0 : (i.total==null? null : Number(i.total))}));
+    const sumItems = items.reduce((a,i)=>a+(Number(i.total)||0),0);
+    const sub = g.subtotal!=null ? Number(g.subtotal) : sumItems;
+    return { ...g, items, subtotal: sub, cortesia: items.length>0 && items.every(i=>i.cortesia) };
+  });
+  const subtotal = groups.reduce((a,g)=>a+g.subtotal,0);
+  const itbms = d.itbms_aplica ? Number(d.itbms_monto)||0 : 0;
+  const descuento = Number(d.descuento)||0;
+  let total = subtotal - descuento + itbms;
+  // diferencia de centavos por redondeo del documento: se usa el total del documento
+  if(d.total_cotizacion!=null && Math.abs(total - Number(d.total_cotizacion)) <= 0.05) total = Number(d.total_cotizacion);
+  const checks = [];
+  if(d.total_cotizacion!=null && Math.abs(total - Number(d.total_cotizacion)) > 0.01)
+    checks.push({tipo:'Inconsistencia', texto:`La suma de rubros (${money(total)}) no coincide con el total de la cotización (${money(d.total_cotizacion)}). Revisa antes de enviar.`});
+  groups.forEach(g=>{ const s=g.items.reduce((a,i)=>a+(Number(i.total)||0),0); if(g.items.some(i=>i.total!=null && !i.cortesia) && Math.abs(s-g.subtotal)>0.01) checks.push({tipo:'Inconsistencia', texto:`En “${g.nombre}” los ítems suman ${money(s)} y el subtotal dice ${money(g.subtotal)}.`}); });
+  return { groups, subtotal, descuento, itbms, total, checks };
+}
+let extraReview = [];
+function addReview(r){ extraReview.push(r); }
+
+/* ——— Pages ——— */
+function foot(n, d, t){
+  return `<div class="foot"><span>${esc([d.cliente||d.evento, d.numero_cotizacion?`Cotización ${d.numero_cotizacion}`:''].filter(Boolean).join(' · '))}</span><span style="display:flex;gap:14px;align-items:flex-end"><img src="${uri(svgWord('#000','#000'))}" alt="Magnishow"><span>${n}</span></span></div>`;
+}
+function secHead(title, sub){ return `<div class="sec"><h2>${esc(title)}</h2>${sub?`<p class="sub">${esc(cap(sub))}</p>`:''}</div>`; }
+// Monograma pequeño en la esquina de las páginas interiores (sobre papel blanco: nunca blanco ni celeste claro)
+const corner = t => `<img class="corner" src="${uri(svgMono(['#ffffff','#33ccff','#ffbe0b'].includes(t.mark) ? t.bg : t.mark))}" alt="">`;
+
+function pageCover(d, c, t){
+  const facts = [
+    ['Recinto', d.recinto], ['Montaje', d.montaje?.fecha_corta], ['Evento', d.evento_fecha?.fecha_corta ? d.evento_fecha.fecha_corta + (d.evento_fecha.dias? ` · ${d.evento_fecha.dias} ${d.evento_fecha.dias==1?'día':'días'}`:'') : null], ['Inversión total', money(c.total)]
+  ];
+  return `<div class="page" style="--pacc:${t.bg};--pink-safe:${t.ink}">
+    <div class="cv-top"><img class="giant" src="${uri(svgMono(t.mark))}" alt=""><img class="wm" src="${uri(svgWord(t.mark, t.ink))}" alt="Magnishow">
+      <div class="cv-title"><span class="t1">Propuesta</span><span class="t2">${esc(cap(d.servicio||'producción de evento'))}</span></div></div>
+    <div class="cv-body">
+      <h1 class="cv-client">${esc(d.cliente||'Cliente')}</h1>
+      <p class="cv-event">${esc([d.evento, d.recinto, d.ciudad].filter(Boolean).join(' · '))}</p>
+      <p class="cv-intro">${esc(d.resumen||'')}</p>
+      <div class="facts">${facts.map(([k,v])=>`<div class="fact"><span>${k}</span><b>${esc(v||'Por confirmar')}</b></div>`).join('')}</div>
+    </div>
+    ${foot(1,d,t)}
+  </div>`;
+}
+function pageSolution(d, c, t, n){
+  let media = '';
+  if(S.renders.length){
+    media = `<div class="render"><img src="${S.renders[0]}" alt="Render del montaje"></div>`;
+    if(S.renders.length>1) media += `<div class="render-row">${S.renders.slice(1,3).map(s=>`<div class="render"><img src="${s}" alt="Render del montaje"></div>`).join('')}</div>`;
+    media += `<p class="rcap">Render referencial. La ubicación final se ajusta a la distribución del recinto.</p>`;
+  } else if(S.sketch){
+    media = `<div class="render sketch"><img src="${uri(S.sketch)}" alt="Bosquejo del montaje"></div><p class="rcap">Esquema referencial, vista frontal. La ubicación final se ajusta a la distribución del recinto.</p>`;
+  } else {
+    media = `<div class="render" style="display:grid;place-items:center;color:#777;font-size:13px">Sube un render para esta sección</div><p class="rcap">&nbsp;</p>`;
+  }
+  const inc = (d.incluye||[]).slice(0,6).map(i=>`<li><b>${esc(i.titulo)}${i.cortesia?'<span class="tag">Cortesía</span>':''}</b><span>${esc(i.texto)}</span></li>`).join('');
+  return `<div class="page" style="--pacc:${t.bg}">${corner(t)}<div class="pad">
+    ${secHead('Solución', d.solucion_subtitulo)}
+    <p class="lead">${esc(d.solucion_texto||'')}</p>
+    ${media}
+    <ul class="incl">${inc}</ul>
+    ${d.ajuste_alcance?`<div class="box"><b>Consideraciones:</b> ${esc(d.ajuste_alcance)}</div>`:''}
+  </div>${foot(n,d,t)}</div>`;
+}
+function pagesGallery(d, t, n0){
+  const extra = S.renders.slice(3), PER = 8, pages = [];
+  for(let i=0;i<extra.length;i+=PER) pages.push(`<div class="page" style="--pacc:${t.bg}">${corner(t)}<div class="pad">
+    ${secHead('Galería', i===0 ? 'Vistas referenciales del montaje' : 'Continuación')}
+    <div class="gallery">${extra.slice(i,i+PER).map(s=>`<div class="render"><img src="${s}" alt="Render del montaje"></div>`).join('')}</div>
+    <p class="rcap" style="margin-top:10px">Renders referenciales. La ubicación final se ajusta a la distribución del recinto.</p>
+  </div>${foot(n0+pages.length,d,t)}</div>`);
+  return pages;
+}
+function invRows(c){
+  const rows = [];
+  c.groups.forEach(g=>{
+    rows.push(`<tr class="grp"><td colspan="3">${esc(g.nombre)}${g.cortesia?'<span class="tag">Cortesía</span>':''}</td><td class="r">${money(g.subtotal)}</td></tr>`);
+    g.items.forEach(i=>rows.push(`<tr><td><b>${esc(i.concepto)}</b>${i.cortesia&&!g.cortesia?'<span class="tag">Cortesía</span>':''}</td><td class="c">${esc(i.cantidad||'')}</td><td>${esc(i.detalle||'')}</td><td class="r">${S.desglose && i.total!=null && !g.cortesia ? money(i.total) : ''}</td></tr>`));
+  });
+  return rows;
+}
+function pagesInvestment(d, c, t, n0){
+  const rows = invRows(c), PER = 20, chunks = [];
+  for(let i=0;i<rows.length;i+=PER) chunks.push(rows.slice(i,i+PER));
+  const last = chunks.length-1;
+  const lastRoom = PER - (chunks[last]?.length||0);
+  const needSplitTotals = lastRoom < 13;
+  const head = `<thead><tr><th>Rubro</th><th class="c">Cant.</th><th>Incluye</th><th class="r">Total USD</th></tr></thead>`;
+  const sums = `<tr class="sum first"><td colspan="3">Subtotal</td><td class="r">${money(c.subtotal)}</td></tr>${c.descuento?`<tr class="sum"><td colspan="3">Descuento</td><td class="r">−${money(c.descuento)}</td></tr>`:''}<tr class="sum"><td colspan="3">${d.impuesto_nombre||'ITBMS'}${d.itbms_aplica?'':' (no aplica)'}</td><td class="r">${money(c.itbms)}</td></tr>`;
+  const paying = c.groups.filter(g=>g.subtotal>0);
+  const colors = t.bg === '#000000' ? ['#000000', '#5c5c5c', '#9a9a9a', '#c4c4c4', '#e0e0e0'] : [t.bg, '#000000', '#7a7a7a', '#b5b5b5', '#d9d9d9'];
+  const dist = c.subtotal>0 ? `<div class="dist"><h4>Distribución de la inversión</h4><div class="barx">${paying.map((g,i)=>`<i style="width:${g.subtotal/c.subtotal*100}%;background:${colors[i%colors.length]}"></i>`).join('')}</div><div class="legend">${paying.map((g,i)=>`<span><s style="background:${colors[i%colors.length]}"></s><b>${esc(g.nombre)}</b> ${money(g.subtotal)} · ${Math.round(g.subtotal/c.subtotal*100)}%</span>`).join('')}</div></div>` : '';
+  const ben = (d.beneficios||[]).length ? `<div class="benef"><h4>Beneficios de contar con Magnishow</h4><ul>${d.beneficios.map(b=>`<li><b>${esc(b.t)}</b><span>${esc(b.x)}</span></li>`).join('')}</ul></div>` : '';
+  const totals = `<div class="totalbox"><span>Inversión total${d.itbms_aplica?` con ${d.impuesto_nombre||'ITBMS'}`:''}</span><b>${money(c.total)}</b></div>${dist}${ben}`;
+  const pages = chunks.map((ch,i)=>`<div class="page" style="--pacc:${t.bg}">${corner(t)}<div class="pad">
+    ${i===0?secHead('Inversión', d.numero_cotizacion?`cotización ${d.numero_cotizacion}`:'detalle de servicios'):secHead('Inversión','continuación')}
+    <table class="inv">${head}<tbody>${ch.join('')}${i===last&&!needSplitTotals?sums:''}</tbody></table>
+    ${i===last&&!needSplitTotals?totals:''}
+  </div>${foot(n0+i,d,t)}</div>`);
+  if(needSplitTotals) pages.push(`<div class="page" style="--pacc:${t.bg}">${corner(t)}<div class="pad">${secHead('Inversión','resumen')}<table class="inv"><tbody>${sums}</tbody></table>${totals}</div>${foot(n0+pages.length,d,t)}</div>`);
+  return pages;
+}
+function clauseList(d){
+  const cliente = d.cliente || 'el cliente';
+  const total = money(compute(d).total);
+  const list = d.condiciones_doc ? d.condiciones_doc.map(c=>({...c}))
+    : d.pais === 'VE' ? []
+    : DEFAULT_CLAUSES.filter((_,i)=>S.clauses.has(i)).map(c=>({t:c.t, x:c.x.replace('{cliente}', cliente).replace('{total}', total)}));
+  const pago = list.findIndex(c=>c.t==='Pago');
+  const extra = $('customClauses').value.split('\n').map(s=>s.trim()).filter(Boolean).map(x=>({t:'', x}));
+  if(d.ajuste_alcance) extra.push({t:'Consideraciones', x:d.ajuste_alcance});
+  if(pago>=0) list.splice(pago, 0, ...extra); else list.push(...extra);
+  return list;
+}
+function pagesConditions(d, c, t, n0){
+  const cal = '';
+  const cl = clauseList(d);
+  const WEIGHT = c => Math.ceil((c.t.length + c.x.length + 4) / 118) * 15.2 + 14;
+  const calH = (d.calendario||[]).length * 34 + 60;
+  const chunks = []; let cur = [], room = (cal ? 740 - calH : 740);
+  cl.forEach(c=>{ const w = WEIGHT(c); if(cur.length && w > room){ chunks.push(cur); cur = []; room = 740; } cur.push(c); room -= w; });
+  if(cur.length) chunks.push(cur);
+  let k = 0;
+  return chunks.map((ch,i)=>{ const start=k; k+=ch.length; return `<div class="page" style="--pacc:${t.bg}">${corner(t)}<div class="pad cond">
+    ${secHead('Condiciones', i===0 ? (d.vigencia_hasta?`válida hasta el ${d.vigencia_hasta}`:'generales de servicio') : 'continuación')}
+    ${i===0&&cal?`<h4>Calendario</h4><table class="cal"><tbody>${cal}</tbody></table>`:''}
+    <h4>${i===0?'Condiciones generales de servicio':'Condiciones generales de servicio (cont.)'}</h4><ol class="clauses" style="counter-reset:c ${start}">${ch.map(c=>`<li>${c.t?`<b>${esc(c.t)}.</b> `:''}${esc(c.x)}</li>`).join('')}</ol>
+  </div>${foot(n0+i,d,t)}</div>`; });
+}
+function pageClosing(d, c, t, n){
+  const needs = (d.necesitamos||[]).slice(0,6).map(x=>`<li>${esc(x)}</li>`).join('');
+  const cal = (d.calendario||[]).map(r=>`<tr><td>${esc(r.etapa)}</td><td>${esc(r.fecha)}</td><td>${esc(r.lugar||'')}</td></tr>`).join('');
+  return `<div class="page" style="--pacc:${t.bg};--pink-safe:${t.ink}">${corner(t)}<div class="pad">
+    ${secHead('Próximos pasos', 'calendario y lo que necesitamos')}
+    ${cal?`<div class="cond"><h4>Calendario</h4><table class="cal"><tbody>${cal}</tbody></table></div>`:''}
+    <div class="cond"><h4>Para avanzar necesitamos</h4></div>
+    <ol class="needs">${needs}</ol>
+    <div class="sign"><div><i></i>Firma del representante legal<br><span>${esc(d.cliente||'Cliente')}</span></div><div><i></i>Firma responsable Magnishow<br><span>Fecha:</span></div></div>
+    <p class="signnote">${d.pais==='VE' ? 'Favor anexar el documento de identidad del representante legal de la empresa.' : 'Favor anexar el Aviso de Operaciones y el documento de identidad del representante legal de la empresa.'}</p>
+    <div class="contact">${(c => `<b>${esc(c.line1)}</b>${[c.line2, c.line3, c.line4].filter(Boolean).map(esc).join('<br>')}`)(d.contacto || CONTACT)}</div>
+  </div>
+  <div class="cl-band"><img class="wm" src="${uri(svgWord(t.mark, t.ink))}" alt="Magnishow"><img class="giant" src="${uri(svgMono(t.mark))}" alt=""><div class="line">Cada detalle<br>cuenta<small>Gracias por la confianza</small></div></div>
+  </div>`;
+}
+
+function renderPages(){
+  const d = S.data; if(!d) return;
+  const t = theme(), c = compute(d);
+  if(!S.renders.length && d._raw) S.sketch = sketchSvg(d, t);
+  const html = [pageCover(d,c,t)];
+  html.push(pageSolution(d,c,t,2));
+  const gal = pagesGallery(d,t,3); html.push(...gal);
+  const inv = pagesInvestment(d,c,t,3+gal.length); html.push(...inv);
+  const cond = pagesConditions(d,c,t,3+gal.length+inv.length); html.push(...cond);
+  html.push(pageClosing(d,c,t,3+gal.length+inv.length+cond.length));
+  $('pages').innerHTML = html.map(h=>`<div class="pagewrap">${h}</div>`).join('');
+  $('pages').querySelectorAll('.page').forEach(p=>{
+    p.querySelectorAll('h1,h2,.sub,p,li,td,b,span,.t1,.t2,.line').forEach(el=>{ if(!el.querySelector('img,table')) el.setAttribute('contenteditable','true'); });
+  });
+  $('empty').hidden = true; $('toolbar').hidden = false;
+  const rev = [...c.checks.filter(x=>!(d.revision||[]).some(r=>r.texto.startsWith('Los rubros'))), ...(d.revision||[]), ...extraReview];
+  $('review').hidden = !rev.length;
+  $('reviewList').innerHTML = rev.map(r=>`<li><b>${esc(r.tipo)}</b><span>${esc(r.texto)}</span></li>`).join('');
+  fitPages();
+}
+function fitPages(){
+  const w = Math.min(816, $('pages').clientWidth - 2);
+  const s = w/816;
+  $('pages').querySelectorAll('.pagewrap').forEach(pw=>{ pw.style.width = 816*s+'px'; pw.style.height = 1056*s+'px'; pw.firstElementChild.style.transform = `scale(${s})`; });
+}
+addEventListener('resize', fitPages);
+
+/* ——— Export ——— */
+$('btnPrint').onclick = ()=>window.print();
+let downloadsPromise = window.claude ? claude.use('downloads') : Promise.resolve(null);
+$('btnPdf').onclick = async ()=>{
+  const btn = $('btnPdf'); btn.disabled = true; const label = btn.textContent; btn.textContent = 'Preparando PDF…';
+  try{
+    await document.fonts.ready;
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit:'pt', format:'letter' });
+    const pages = [...$('pages').querySelectorAll('.page')];
+    // Captura siempre en modo claro y sin el borde de pantalla (html2canvas pinta el box-shadow sobre la página)
+    const root = document.documentElement, prevTheme = root.dataset.theme; root.dataset.theme = 'light';
+    try{
+    for(let i=0;i<pages.length;i++){
+      const p = pages[i], prev = p.style.transform, prevShadow = p.style.boxShadow; p.style.transform = 'none'; p.style.boxShadow = 'none';
+      const canvas = await html2canvas(p, { scale:2, backgroundColor:'#ffffff', useCORS:true, logging:false });
+      p.style.transform = prev; p.style.boxShadow = prevShadow;
+      if(i) pdf.addPage();
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 612, 792);
+    }
+    } finally { if(prevTheme) root.dataset.theme = prevTheme; else delete root.dataset.theme; }
+    const blob = pdf.output('blob');
+    const d = S.data || {};
+    const name = `Propuesta ${d.numero_cotizacion||''} ${d.cliente||'Magnishow'}`.replace(/[\\/:*?"<>|]+/g,'').replace(/\s+/g,' ').trim() + '.pdf';
+    const dl = await downloadsPromise;
+    if(dl) await dl.save({ filename:name, data:blob });
+    else pdf.save(name);
+    status('PDF descargado.');
+  }catch(e){
+    if(e && e.code==='declined') status('Descarga cancelada.');
+    else status('No se pudo generar el PDF. Usa Imprimir y guarda como PDF.', true);
+  }finally{ btn.disabled = false; btn.textContent = label; }
+};
+
+/* ——— Init ——— */
+$('desglose').onchange = e=>{ S.desglose = e.target.checked; if(S.data) renderPages(); };
+let formTimer;
+['fCliente','fEvento','fRecinto','fFecha','context'].forEach(id=>$(id).addEventListener('input', ()=>{ clearTimeout(formTimer); formTimer = setTimeout(()=>{ if(S.data) $('go').click(); }, 500); }));
+renderExecs(); renderClauses(); paintChrome();
+
+</script>
+</body>
+</html>
