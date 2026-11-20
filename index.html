@@ -374,6 +374,17 @@ function wireDrop(label, input, onFiles){
   label.addEventListener('drop', e=>{e.preventDefault(); label.classList.remove('over'); onFiles([...e.dataTransfer.files]);});
 }
 const DETALLE = '\u21B3 ';   // marca de línea en cursiva (detalle)
+// Une los textos de una fila. Algunos PDF (exportados desde programas de diseño) parten cada
+// palabra en pedazos pegados: si un pedazo empieza justo donde termina el anterior, va sin espacio.
+function juntaFila(items){
+  let out = '', fin = null;
+  for(const it of items){
+    const pegado = fin!=null && it.x - fin < it.fs*0.15 && it.x - fin > -it.fs*0.5;
+    out += (out && !pegado ? ' ' : '') + it.s;
+    fin = it.w ? it.x + it.w : null;
+  }
+  return out;
+}
 async function pdfText(file){
   const lib = window.pdfjsLib; if(!lib) throw new Error('pdf');
   lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -386,7 +397,7 @@ async function pdfText(file){
     const cursiva = fn => { try{ return /italic|oblique/i.test(page.commonObjs.get(fn)?.name || ''); }catch(_){ return false; } };
     // Ordena el texto por filas visuales (de arriba abajo, de izquierda a derecha):
     // el orden interno del PDF no siempre coincide con lo que se ve.
-    const items = tc.items.filter(it=>it.str && it.str.trim()).map(it=>({s:it.str, x:it.transform[4], y:it.transform[5], i:cursiva(it.fontName)}));
+    const items = tc.items.filter(it=>it.str && it.str.trim()).map(it=>({s:it.str, x:it.transform[4], y:it.transform[5], w:it.width||0, fs:Math.hypot(it.transform[0],it.transform[1])||10, i:cursiva(it.fontName)}));
     items.sort((a,b)=>b.y-a.y || a.x-b.x);
     const rows = [];
     for(const it of items){
@@ -394,8 +405,9 @@ async function pdfText(file){
       if(row && Math.abs(row.y-it.y)<=2) row.items.push(it); else rows.push({y:it.y, items:[it]});
     }
     // DETALLE marca las filas en cursiva: en Rentman son los detalles del ítem de arriba
-    const lines = rows.map(r=>(r.items.every(i=>i.i) ? DETALLE : '') + r.items.sort((a,b)=>a.x-b.x).map(i=>i.s).join(' '));
-    out += `\n--- Página ${p} ---\n` + lines.map(l=>l.replace(/\s+/g,' ').trim()).filter(Boolean).join('\n');
+    const lines = rows.map(r=>(r.items.every(i=>i.i) ? DETALLE : '') + juntaFila(r.items.sort((a,b)=>a.x-b.x)));
+    // Símbolos de fuentes sin mapa (uso privado): entre números suelen ser el "×" de "3 × 2 m"
+    out += `\n--- Página ${p} ---\n` + lines.map(l=>l.replace(/(\d)\s*[-]\s*(\d)/g, '$1 × $2').replace(/[-]/g, ' ').replace(/\s+/g,' ').trim()).filter(Boolean).join('\n');
   }
   return out.trim();
 }
@@ -566,7 +578,7 @@ function parseGenerico(text){
     fechaCotTxt: field('fecha de (?:cotizaci[oó]n|emisi[oó]n|presupuesto)'),
     validoTxt: null, subtotal: null, itbms: 0, total: null, impuesto: null, formato: 'generico'
   };
-  if(!q.numero){ const m = lines.join('\n').match(/(?:cotizaci[oó]n|presupuesto|propuesta)\s*(?:n[°º.o]*|#|no\.?)\s*:?\s*([A-Z0-9][\w-]*)/i); if(m) q.numero = m[1]; }
+  if(!q.numero){ const m = lines.join('\n').match(/(?:cotizaci[oó]n|presupuesto|propuesta)\s*(?:n[°º.o]*|#|no\.?)\s*:?\s*([A-Z0-9][\w-]*)/i); if(m && /\d/.test(m[1])) q.numero = m[1]; }
   if(q.numero) q.numero = q.numero.replace(/^[.:\s]+/, '');
   // Nombres en MAYÚSCULAS → "Centro Portugues", "San Martinho"
   const titulo = v => v && v === v.toUpperCase() && /[A-ZÁÉÍÓÚÑ]{3}/.test(v) ? v.toLowerCase().replace(/(^|\s)([a-záéíóúñ])/g, (m, a, c)=>a + c.toUpperCase()).replace(/\s(De|Del|La|Las|Los|Y|E|En)(?=\s)/g, m=>m.toLowerCase()) : v;
@@ -621,6 +633,7 @@ function parseGenerico(text){
   }
   groups.forEach(gr=>gr.items.forEach(it=>{ it.detalle = it.det.join(' · '); }));
   q.soloGrupos = false;
+  if(!groups.some(gr=>gr.items.length)) gruposConTotal(lines, q, groups);
   // Venezuela: IVA 16 %, teléfonos +58, Bs / BCV → se usan las condiciones, la vigencia y el contacto del documento
   const todo = lines.join('\n');
   if(q.impuesto?.tasa === 16 || /\(\+58\)|venezuela|caracas|\bbcv\b|bol[ií]vares|\bbs\.?\s/i.test(todo)){
@@ -631,6 +644,49 @@ function parseGenerico(text){
     if(v) q.vigenciaDias = +v[1];
   }
   return { q, groups: groups.filter(gr=>gr.items.length) };
+}
+// Tablas con el monto solo en la fila del rubro y renglones sin precio debajo
+// ("Pantalla principal $800.00" / "Pantalla LED 6 m² Pantalla LED P2.6 de 3 × 2 m…"),
+// como las propuestas ya diseñadas. Completa q y groups; los datos salen de calendario, pie de página y título.
+function gruposConTotal(lines, q, groups){
+  const NO_RUBRO = /total|itbms|iva\b|impuesto|inversi[oó]n|actualiza|monto|pago|descuento/i;
+  const rubro = l => { const m = l.match(/^([^\d$]{2,60}?)\s+(?:C\s?O\s?R\s?T\s?E\s?S\s?[IÍ]\s?A\s+)?\$\s?([\d.,]+)$/i); return m && !NO_RUBRO.test(m[1]) && !/[.:;]$/.test(m[1]) ? m : null; };
+  const renglon = l => !/\$/.test(l) && l.match(/^([A-ZÁÉÍÓÚÑ][^\d]{1,40}?)\s+(\d+(?:[.,]\d+)?)\s*(m²|m2|mts?|unid\.?|hrs?|horas?|d[ií]as?)?\s+(\S.*)$/);
+  let g = null;
+  lines.forEach((l, i)=>{
+    const r = rubro(l);
+    if(r && renglon(lines[i+1] || '')){
+      const nombre = r[1].replace(/\s*·\s*cortes[ií]a.*$/i, '').trim(), total = num(r[2]);
+      g = { nombre: GROUP_FIX[norm(nombre)] || nombre, items: [], totalPdf: total }; groups.push(g); return;
+    }
+    const it = g && renglon(l);
+    if(it){
+      const qty = num(it[2]), u = it[3] ? ` ${it[3].replace('m2','m²')}` : '';
+      g.items.push({ concepto: cleanName(it[4].replace(/[.,]\s*$/, '')), detalle: '', det: [it[4]],   // det: el bosquejo lee las medidas de ahí
+      cantidad: `${qty}${u}`, qty, unit: null, factor: 1, total: null, cortesia: g.totalPdf === 0 });
+      return;
+    }
+    if(g && !r) g = null;   // fin de la tabla
+  });
+  if(!groups.length) return;
+  q.soloGrupos = true;
+  for(const l of lines){
+    let m;
+    if(q.subtotal == null && (m = l.match(/^sub-?\s*total\s*:?\s*\$\s?([\d.,]+)$/i))) q.subtotal = num(m[1]);
+    else if(q.total == null && (m = l.match(/^(?:inversi[oó]n\s+)?total(?:\s+(?:general|a pagar))?\s*:?\s*\$\s?([\d.,]+)$/i))) q.total = num(m[1]);
+    else if(!q.impuesto && (m = l.match(/^(itbms|iva)\s*(?:\(?\s*(\d+)\s*%\s*\)?)?\s*(\(no aplica\))?\s*:?\s*\$\s?([\d.,]+)$/i))){ q.itbms = num(m[4]); q.impuesto = { nombre: m[1].toUpperCase(), tasa: m[2] ? +m[2] : (m[3] ? 0 : null) }; }
+  }
+  if(q.subtotal == null) q.subtotal = groups.reduce((a,gr)=>a+gr.totalPdf, 0);
+  if(q.total == null) q.total = q.subtotal + (q.itbms || 0);
+  // Datos: pie de página "Magnishow | Cliente · Servicio · Recinto 2026" y calendario "Montaje y pruebas Lunes 30 de noviembre de 2026"
+  const pie = lines.map(l=>l.match(/^\d*\s*Magnishow\s*\|\s*(.+?)\s*·\s*(.+?)\s*·\s*(.+?)(?:\s+\d{4})?$/i)).find(Boolean);
+  if(pie){ q.cliente = q.cliente || pie[1]; q.recinto = q.recinto || pie[3]; }
+  const FECHA = '(\\d{1,2} de [a-záéíóú]+ de \\d{4})';
+  const fecha = re => { for(const l of lines){ const m = l.match(re); if(m) return m[1]; } return null; };
+  q.montajeTxt = q.montajeTxt || fecha(new RegExp(`^montaje(?: y pruebas)?\\s+(?:[a-záéíóú]+\\s+)?${FECHA}`, 'i'));
+  q.eventoTxt = q.eventoTxt || fecha(new RegExp(`^evento\\s+(?:[a-záéíóú]+\\s+)?${FECHA}`, 'i'));
+  const nro = lines.join(' ').replace(/\b((?:[A-ZÁÉÍÓÚÑ0-9] ){2,}[A-ZÁÉÍÓÚÑ0-9])\b/g, m=>m.replace(/ /g,'')).match(/cotizaci[oó]n\s*(?:n[°º.o]*\s*)?(\d{4,})/i);
+  if(nro) q.numero = nro[1];
 }
 // Condiciones numeradas del propio documento ("1.- Este presupuesto…"), uniendo las líneas partidas
 function condicionesDelDocumento(lines){
@@ -875,7 +931,7 @@ function sketchSvg(d, t){
   const items = d._raw.groups.flatMap(g=>g.items.map(i=>({...i, g:norm(g.nombre)})));
   const els = [];
   const booths = [];
-  const re = /(?:(\d+)\s*)?(pantallas?|t[oó]tems?|dj ?booth|booth)(\s+curvas?)?\s*(?:de\s*)?(\d+(?:[.,]\d+)?)\s*m?\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*m?(?:\s*a\s*(\d+(?:[.,]\d+)?)\s*m(?:etros?)?\s*de\s*altura)?/ig;
+  const re = /(?:(\d+)\s*)?(pantallas?|t[oó]tems?|dj ?booth|booth)(?:\s+leds?)?(?:\s+p\d+(?:[.,]\d+)?)?(\s+curvas?)?\s*(?:de\s*)?(\d+(?:[.,]\d+)?)\s*m?\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*m?(?:,?\s*(?:elevada\s+)?a\s*(\d+(?:[.,]\d+)?)\s*m(?:etros?)?\s*(?:de\s*altura|del\s*piso))?/ig;
   items.forEach(i=>{ (i.det||[]).forEach(line=>{ let m; re.lastIndex = 0; while((m = re.exec(line))){
     const a = num(m[4]), b = num(m[5]);
     // DJ booth: pantalla individual al frente de la pantalla principal, apoyada en el piso (alto = lado menor)
