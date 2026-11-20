@@ -66,6 +66,7 @@ textarea{width:100%; min-height:90px; border:1px solid var(--line); background:v
 .pill{display:inline-block; font-size:11.5px; padding:1px 8px; background:var(--ink); color:var(--surface); margin-left:6px; vertical-align:2px}
 .go{border:0; box-shadow:inset 0 0 0 1.5px var(--ink); background:var(--acc); color:var(--acc-ink); font:600 20px/1 var(--f-title); text-transform:uppercase; padding:18px; cursor:pointer; clip-path:polygon(0 0,100% 0,calc(100% - 12px) 100%,0 100%)}
 .go[disabled]{opacity:.5; cursor:progress}
+.pay .check{border-bottom:0; padding:5px 0; align-items:center} .pay .check input{margin-top:0} .pay .dias{display:inline-flex; align-items:center; gap:6px; margin-left:6px} .pay .dias input{width:64px; border:1px solid var(--line); background:var(--surface); padding:4px 6px; font-size:13.5px} .pay textarea{min-height:64px; margin-top:4px}
 .fields{display:grid; gap:8px} .fields label{display:grid; gap:3px; font-size:12.5px; color:var(--muted)} .fields input{border:1px solid var(--line); background:var(--surface); padding:9px 10px; font-size:14px; color:var(--ink)}
 .status{font-size:13.5px; color:var(--muted); min-height:20px}
 .status.err{color:var(--ink); font-weight:600}
@@ -147,6 +148,7 @@ table.inv tr.sum.first td{border-top:2px solid #000; padding-top:12px}
 .totalbox{display:flex; justify-content:space-between; align-items:flex-end; background:#000; color:#fff; padding:18px 22px; margin-top:12px; border-left:12px solid var(--pacc)}
 .totalbox span{font-size:12px}
 .totalbox b{font:700 40px/1 var(--f-title)}
+.paynote{margin-top:10px; font-size:12.5px; line-height:1.5} .paynote b{font-weight:700}
 .dist{margin-top:26px}
 .dist .barx{display:flex; height:18px}
 .dist .barx i{display:block; height:100%}
@@ -245,6 +247,16 @@ table.cal{margin-bottom:18px}
       <label>Recinto<input id="fRecinto" placeholder="Lugar del evento"></label>
       <label>Fecha del evento<input id="fFecha" type="date"></label>
     </div>
+  </section>
+
+  <section class="step pay">
+    <h2>Condiciones de pago</h2>
+    <p class="help">Sale junto al total de la inversión y en la cláusula de pago.</p>
+    <label class="check"><input type="radio" name="pago" value="adelantado" checked><span>100&nbsp;% por adelantado</span></label>
+    <label class="check"><input type="radio" name="pago" value="abono"><span>50&nbsp;% de abono para reservar y 50&nbsp;% antes del evento</span></label>
+    <label class="check"><input type="radio" name="pago" value="credito"><span>Crédito<span class="dias"><input type="number" id="pagoDias" min="1" max="180" value="30" aria-label="Días de crédito"> días</span></span></label>
+    <label class="check"><input type="radio" name="pago" value="otra"><span>Personalizada</span></label>
+    <textarea id="pagoTexto" placeholder="Ej.: 30 % al firmar, 40 % en el montaje y 30 % al cierre del evento." hidden></textarea>
   </section>
 
   <section class="step">
@@ -900,6 +912,17 @@ const INVENTARIO = [
       o += `<rect x="${x}" y="${seat+(f-seat)*0.55}" width="${w}" height="${p*0.8}" fill="${c}"/>`;   // travesaño de patas
       return o;
     } },
+  { nombre:'Barra LED', re:/barras? (de )?leds?|led ?bars?|pixel ?bar|beam ?bar|litelees/, tipo:'barra', w:1.00, h:0.38,
+    draw(x, f, sc, color){   // barra móvil LiteLEES de 10 lentes: base con yugo y cabezal inclinable, haz hacia arriba
+      const w = this.w*sc, base = Math.max(4, 0.12*sc), hh = Math.max(5, 0.16*sc), top = f - this.h*sc, c = color || '#ff3b3b';
+      let o = `<polygon points="${x+w*0.04},${top} ${x+w*0.96},${top} ${x+w*1.25},${top-3.2*sc} ${x-w*0.25},${top-3.2*sc}" fill="#fff" opacity=".10"/>`;   // haz
+      o += `<rect x="${x}" y="${f-base}" width="${w}" height="${base}" fill="#1a1a1a" stroke="#666" stroke-width="1"/>`;   // base
+      o += `<rect x="${x}" y="${top}" width="${Math.max(2,0.04*sc)}" height="${f-base-top}" fill="#2a2a2a"/><rect x="${x+w-Math.max(2,0.04*sc)}" y="${top}" width="${Math.max(2,0.04*sc)}" height="${f-base-top}" fill="#2a2a2a"/>`;   // yugo
+      o += `<rect x="${x+w*0.03}" y="${top}" width="${w*0.94}" height="${hh}" fill="#111" stroke="#666" stroke-width="1"/>`;   // cabezal
+      const r = Math.max(1.2, Math.min(hh*0.32, w*0.94/22));
+      for(let k=0;k<10;k++) o += `<circle cx="${x+w*0.03+(k+0.5)*w*0.94/10}" cy="${top+hh/2}" r="${r}" fill="${c}"/>`;   // 10 lentes
+      return o;
+    } },
 ];
 // PS15 en tubo sobre LS18 (como se monta en eventos grandes)
 const NEXO_STACK = { nombre:'NEXO PS15 + LS18', tipo:'audio', w:0.715, h:0.554+0.85+0.70,
@@ -950,8 +973,13 @@ function sketchSvg(d, t){
     const area = items.filter(i=>/pantallas? (de )?leds?\b/i.test(norm(i.concepto)) && /m²/.test(i.cantidad)).reduce((a,i)=>a+i.qty,0);
     if(area){ const w = Math.round(Math.sqrt(area*16/9)*2)/2; els.push({type:'screen', w, h: Math.round(area/w*2)/2}); }
   }
-  let lights = items.filter(i=>/luz|leko|par led|barra|movil|wash|beam|cabeza/.test(norm(i.concepto))).reduce((a,i)=>a+i.qty,0);
-  const lucesGenericas = !lights && items.some(i=>/iluminacion/.test(norm(i.concepto)));   // "Alquiler de iluminación" sin equipos: 6 luces referenciales
+  // Barras LED (LiteLEES): en el piso, a los extremos del escenario, repartidas a ambos lados
+  const barra = INVENTARIO.find(m=>m.tipo==='barra');
+  const esBarra = i => barra.re.test(norm(i.concepto)) || (i.det||[]).some(t=>barra.re.test(norm(t)));
+  const nBarras = Math.min(8, Math.round(items.filter(esBarra).reduce((a,i)=>a+i.qty,0)));
+  const barL = Math.ceil(nBarras/2), barR = Math.floor(nBarras/2);
+  let lights = items.filter(i=>!esBarra(i) && /luz|leko|par led|barra|movil|wash|beam|cabeza/.test(norm(i.concepto))).reduce((a,i)=>a+i.qty,0);
+  const lucesGenericas = !lights && !nBarras && items.some(i=>/iluminacion/.test(norm(i.concepto)));   // "Alquiler de iluminación" sin equipos: 6 luces referenciales
   if(lucesGenericas) lights = 6;
   const stream = items.some(i=>/streaming/.test(i.g) || /streaming|camara/.test(norm(i.concepto)));
   const SPK = /bose|l1 pro|parlante|bocina|altavoz|line ?array|speaker|subwoofer|cabina|columna|\bjbl\b|\bqsc\b|\brcf\b/;
@@ -983,7 +1011,7 @@ function sketchSvg(d, t){
   const nSillas = sillaTxt ? (+(sillaTxt.match(/(\d+)\s*sillas?/i)||[])[1] || items.filter(i=>silla.re.test(norm(i.concepto))).reduce((a,i)=>a+i.qty,0) || 1) : 0;
   const sillaColor = /dorad/i.test(sillaTxt) ? ['#c9a227','dorado'] : /platead/i.test(sillaTxt) ? ['#b8b8b8','plateado'] : /negr/i.test(sillaTxt) ? ['#555555','negro'] : /transparent|cristal/i.test(sillaTxt) ? ['#9fd3e6','transparente'] : ['#eeeeee','blanco'];
   const filaSillas = Math.min(nSillas, 12), sillasW = filaSillas ? filaSillas*silla.w + (filaSillas-1)*0.18 : 0;
-  if(!els.length && !lights && !speakers && !mesaW && !booths.length && !nSillas) return null;
+  if(!els.length && !lights && !nBarras && !speakers && !mesaW && !booths.length && !nSillas) return null;
 
   const screens = els.filter(e=>e.type==='screen').sort((a,b)=>b.w-a.w), totems = els.filter(e=>e.type==='totem');
   const row = []; screens.forEach((s,i)=> i%2 ? row.unshift(s) : row.push(s));
@@ -991,10 +1019,11 @@ function sketchSvg(d, t){
   const seq = [...tl, ...row, ...tr];
   const GAP = 0.8, ELEV = 1, SPH = Math.max(0, ...spkList.map(m=>m.h));
   const spL = spkList.filter((_,i)=>i%2===0).reverse(), spR = spkList.filter((_,i)=>i%2===1);   // alterna lados para que quede simétrico
+  const spaceBar = n => n ? n*barra.w + (n-1)*0.3 + GAP : 0;
   const spaceSpk = list => list.length ? list.reduce((a,m)=>a+m.w,0) + (list.length-1)*0.3 + GAP : 0;
   const seqW = seq.reduce((a,e)=>a+e.w,0) + GAP*Math.max(0,seq.length-1);
   const boothW = Math.max(booths.reduce((a,b)=>a+b.w,0) + (monitores ? 2*(yamaha.w+0.4) : 0), sillasW);
-  const Wm = (Math.max(seqW, boothW) || (speakers || mesaW ? 3 : 6)) + spaceSpk(spL) + spaceSpk(spR) + (mesaW ? mesaW + GAP : 0);
+  const Wm = (Math.max(seqW, boothW) || (speakers || mesaW ? 3 : 6)) + spaceSpk(spL) + spaceSpk(spR) + (mesaW ? mesaW + GAP : 0) + spaceBar(barL) + spaceBar(barR);
   const Hm = Math.max(3, SPH, ...seq.map(e=> e.type==='screen' ? e.h+(e.elev ?? ELEV) : e.h)) + 0.8;
   const W = 1200, H = 520, FLOOR = 470, sc = Math.min((stream?860:1000)/Wm, (FLOOR-70)/Hm);
   let x = (W - Wm*sc)/2;
@@ -1012,12 +1041,15 @@ function sketchSvg(d, t){
     const n = Math.min(lights, 10);
     for(let i=0;i<n;i++){ const lx = 100 + i*((W-200)/Math.max(1,n-1)); s += `<polygon points="${lx-6},50 ${lx+6},50 ${lx+50},${FLOOR} ${lx-50},${FLOOR}" fill="#fff" opacity=".10"/><rect x="${lx-8}" y="42" width="16" height="14" fill="#888"/>`; }
   }
-  const nScreen = 1, nTotem = screens.length ? 2 : 1, nLight = 1 + (screens.length?1:0) + (totems.length?1:0), nAudio = nLight + (lights?1:0);
+  const nScreen = 1, nTotem = screens.length ? 2 : 1, nLight = 1 + (screens.length?1:0) + (totems.length?1:0), nAudio = nLight + (lights||nBarras?1:0);
   // parlantes (columna sobre el piso) a cada lado de las pantallas
   const spkLabel = spkList.length && spkList.every(m=>m===spkList[0]) ? spkList[0].nombre : 'Audio';
   const drawSpk = list => { list.forEach((m,k)=>{ s += m.draw(x, FLOOR, sc); if(k===0 && !labeledA){ s += label(nAudio, x + m.w*sc/2, FLOOR - (m.alto || m.h)*sc - 22, spkLabel, true); labeledA = true; } x += (m.w + 0.3)*sc; }); if(list.length) x += (GAP-0.3)*sc; };
   let labeledA = false;
   if(!seq.length && speakers) x = (W - Wm*sc)/2;
+  const barColor = t.screen || t.bg;
+  const drawBars = (n, conLabel) => { const lx = x; for(let k=0;k<n;k++){ s += barra.draw(x, FLOOR, sc, barColor); x += (barra.w + 0.3)*sc; } if(n && conLabel) s += label(nLight, lx + 10, FLOOR - barra.h*sc - 26, `Barras LED (${nBarras})`); if(n) x += (GAP-0.3)*sc; };
+  drawBars(barL, true);
   drawSpk(spL);
   let labeledS = false, labeledT = false, scrL = Infinity, scrR = -Infinity;
   const x0 = x;
@@ -1056,6 +1088,8 @@ function sketchSvg(d, t){
     const partes = [consola?.nombre, mics.length ? `${mics.length} ${mics.length>1?'micrófonos':'micrófono'}${mics[0].nombre!=='Micrófono'?' '+mics[0].nombre:''}` : null].filter(Boolean);
     s += label(nAudio + (speakers?1:0), x + mw - 11, FLOOR + 25, partes.join(' · '), true);
   }
+  if(mesaW) x += (mesaW + GAP)*sc;   // la mesa de audio no avanza x
+  drawBars(barR, false);
   if(lights) s += label(nLight, 70, 74, lucesGenericas ? 'Iluminación' : `Iluminación (${lights})`);
   if(stream){
     [80, W-80].forEach(cx=>{ s += `<line x1="${cx}" y1="${FLOOR-40}" x2="${cx-22}" y2="${FLOOR+30}" stroke="#aaa" stroke-width="3"/><line x1="${cx}" y1="${FLOOR-40}" x2="${cx+22}" y2="${FLOOR+30}" stroke="#aaa" stroke-width="3"/><rect x="${cx-24}" y="${FLOOR-66}" width="40" height="26" fill="#ddd"/><rect x="${cx+16}" y="${FLOOR-60}" width="14" height="14" fill="#999"/>`; });
@@ -1216,7 +1250,7 @@ function pagesInvestment(d, c, t, n0){
   const colors = t.bg === '#000000' ? ['#000000', '#5c5c5c', '#9a9a9a', '#c4c4c4', '#e0e0e0'] : [t.bg, '#000000', '#7a7a7a', '#b5b5b5', '#d9d9d9'];
   const dist = c.subtotal>0 ? `<div class="dist"><h4>Distribución de la inversión</h4><div class="barx">${paying.map((g,i)=>`<i style="width:${g.subtotal/c.subtotal*100}%;background:${colors[i%colors.length]}"></i>`).join('')}</div><div class="legend">${paying.map((g,i)=>`<span><s style="background:${colors[i%colors.length]}"></s><b>${esc(g.nombre)}</b> ${money(g.subtotal)} · ${Math.round(g.subtotal/c.subtotal*100)}%</span>`).join('')}</div></div>` : '';
   const ben = (d.beneficios||[]).length ? `<div class="benef"><h4>Beneficios de contar con Magnishow</h4><ul>${d.beneficios.map(b=>`<li><b>${esc(b.t)}</b><span>${esc(b.x)}</span></li>`).join('')}</ul></div>` : '';
-  const totals = `<div class="totalbox"><span>Inversión total${d.itbms_aplica?` con ${d.impuesto_nombre||'ITBMS'}`:''}</span><b>${money(c.total)}</b></div>${dist}${ben}`;
+  const totals = `<div class="totalbox"><span>Inversión total${d.itbms_aplica?` con ${d.impuesto_nombre||'ITBMS'}`:''}</span><b>${money(c.total)}</b></div><p class="paynote"><b>Forma de pago:</b> ${esc(cap(formaPago(c.total)))}</p>${dist}${ben}`;
   const pages = chunks.map((ch,i)=>`<div class="page" style="--pacc:${t.bg}">${corner(t)}<div class="pad">
     ${i===0?secHead('Inversión', d.numero_cotizacion?`cotización ${d.numero_cotizacion}`:'detalle de servicios'):secHead('Inversión','continuación')}
     <table class="inv">${head}<tbody>${ch.join('')}${i===last&&!needSplitTotals?sums:''}</tbody></table>
@@ -1225,6 +1259,14 @@ function pagesInvestment(d, c, t, n0){
   if(needSplitTotals) pages.push(`<div class="page" style="--pacc:${t.bg}">${corner(t)}<div class="pad">${secHead('Inversión','resumen')}<table class="inv"><tbody>${sums}</tbody></table>${totals}</div>${foot(n0+pages.length,d,t)}</div>`);
   return pages;
 }
+// Forma de pago elegida en el formulario (por defecto, 100 % por adelantado)
+function formaPago(total){
+  const op = document.querySelector('input[name="pago"]:checked')?.value || 'adelantado';
+  if(op === 'abono'){ const mitad = Math.round(total*50)/100; return `abono del 50 % (${money(mitad)}) para reservar la fecha y el 50 % restante (${money(total - mitad)}) antes del inicio del evento.`; }
+  if(op === 'credito'){ const n = Math.max(1, Math.round(+$('pagoDias').value || 30)); return `crédito a ${n} ${n === 1 ? 'día' : 'días'} a partir de la fecha de la factura.`; }
+  if(op === 'otra'){ const x = $('pagoTexto').value.trim().replace(/\s+/g, ' '); if(x) return x.charAt(0).toLowerCase() + x.slice(1) + (/[.!?]$/.test(x) ? '' : '.'); }
+  return '100 % por adelantado, al confirmar la propuesta.';
+}
 function clauseList(d){
   const cliente = d.cliente || 'el cliente';
   const total = money(compute(d).total);
@@ -1232,6 +1274,7 @@ function clauseList(d){
     : d.pais === 'VE' ? []
     : DEFAULT_CLAUSES.filter((_,i)=>S.clauses.has(i)).map(c=>({t:c.t, x:c.x.replace('{cliente}', cliente).replace('{total}', total)}));
   const pago = list.findIndex(c=>c.t==='Pago');
+  if(pago >= 0) list[pago].x += ` Forma de pago: ${formaPago(compute(d).total)}`;
   const extra = $('customClauses').value.split('\n').map(s=>s.trim()).filter(Boolean).map(x=>({t:'', x}));
   if(d.ajuste_alcance) extra.push({t:'Consideraciones', x:d.ajuste_alcance});
   if(pago>=0) list.splice(pago, 0, ...extra); else list.push(...extra);
@@ -1330,6 +1373,8 @@ $('btnPdf').onclick = async ()=>{
 };
 
 /* ——— Init ——— */
+document.querySelectorAll('input[name="pago"]').forEach(r=>r.onchange = ()=>{ $('pagoTexto').hidden = r.value !== 'otra' || !r.checked; if(r.value === 'otra' && r.checked) $('pagoTexto').focus(); if(S.data) renderPages(); });
+['pagoDias','pagoTexto'].forEach(id=>$(id).addEventListener('input', ()=>{ const v = id === 'pagoDias' ? 'credito' : 'otra'; document.querySelector(`input[name="pago"][value="${v}"]`).checked = true; $('pagoTexto').hidden = v !== 'otra'; clearTimeout(formTimer); formTimer = setTimeout(()=>{ if(S.data) renderPages(); }, 400); }));
 $('desglose').onchange = e=>{ S.desglose = e.target.checked; if(S.data) renderPages(); };
 let formTimer;
 ['fCliente','fEvento','fRecinto','fFecha','context'].forEach(id=>$(id).addEventListener('input', ()=>{ clearTimeout(formTimer); formTimer = setTimeout(()=>{ if(S.data) $('go').click(); }, 500); }));
