@@ -548,11 +548,11 @@ function parseRentman(text){
     if(m){ newItem(m[1], m[2], num(m[3]), num(m[4]), num(m[5])); continue; }
     const np = !priceMode && l.match(NOPRICE);
     if(np){ newItem(np[1], np[2], null, null, null); continue; }
-    const isGroup = !/^\d/.test(l) && !/\$/.test(l) && (KNOWN_GROUPS.includes(norm(l)) || (!item && l.length < 40));
+    const isGroup = !/^\d/.test(l) && !/\$/.test(l) && (KNOWN_GROUPS.includes(norm(l)) || KNOWN_GROUPS.includes(norm(l)+'s') || (!item && l.length < 40));   // singular o plural: Tarima / Tarimas
     if(isGroup){ const k = norm(l); g = {nombre: GROUP_FIX[k] || cap(l), items:[]}; groups.push(g); item = null; continue; }
     if(item){ item.det.push(l.replace(/^(\d+)\s*/, '$1 ')); }
   }
-  groups.forEach(gr=>gr.items.forEach(it=>{ it.detalle = it.det.join(' · '); }));
+  groups.forEach(gr=>gr.items.forEach(it=>{ it.detalle = it.det.map(x=>x.replace(/^[*•]\s*/, '')).join(' · '); }));
   q.soloGrupos = !priceMode;
   // Si los montos "Total grupo" salieron sueltos al final del texto (solo "$ 840,00"),
   // se asignan en orden a los grupos y los tres siguientes son subtotal, ITBMS y total.
@@ -643,7 +643,7 @@ function parseGenerico(text){
     if(item && wrapped){ item.concepto = cleanName(`${item.concepto} ${l === l.toUpperCase() ? l.toLowerCase() : l}`); wrapped = false; continue; }
     pending.push(l); if(pending.length > 2) pending.shift();
   }
-  groups.forEach(gr=>gr.items.forEach(it=>{ it.detalle = it.det.join(' · '); }));
+  groups.forEach(gr=>gr.items.forEach(it=>{ it.detalle = it.det.map(x=>x.replace(/^[*•]\s*/, '')).join(' · '); }));
   q.soloGrupos = false;
   if(!groups.some(gr=>gr.items.length)) gruposConTotal(lines, q, groups);
   // Venezuela: IVA 16 %, teléfonos +58, Bs / BCV → se usan las condiciones, la vigencia y el contacto del documento
@@ -842,7 +842,7 @@ function buildData(parsed, form){
     numero_cotizacion: q.numero, fecha_emision: longDate(fechaCot), vigencia_hasta: longDate(vence),
     montaje: { fecha: longDate(fMontaje), fecha_corta: shortDate(fMontaje) },
     evento_fecha: { fecha: longDate(fEvento), fecha_corta: shortDate(fEvento), dias: diasM ? +diasM[1] : null },
-    grupos: groups.map(gr=>({ nombre: gr.nombre, subtotal: gr.totalPdf ?? null, items: gr.items.map(i=>({concepto:i.concepto, detalle:i.detalle, cantidad:i.cantidad, total:i.total, cortesia:i.cortesia})) })),
+    grupos: groups.map(gr=>({ nombre: gr.nombre, subtotal: gr.totalPdf ?? null, items: gr.items.map(i=>({concepto:i.concepto, detalle:i.detalle, cantidad:i.cantidad, unit:i.unit ?? null, factor:i.factor ?? null, total:i.total, cortesia:i.cortesia})) })),
     itbms_aplica: itbms > 0, itbms_monto: itbms, total_cotizacion: q.total, descuento, impuesto_nombre: impNombre, beneficios,
     resumen: `Presentamos la ${has(/streaming/)?'producción audiovisual y transmisión':'producción audiovisual'} ${evento?`de ${evento}`:'del evento'}${recinto?` en ${recinto}`:''}${fEvento?`, el ${longDate(fEvento)}`:''}. La solución integra ${listEs(names)}${ledM2?`, con ${ledM2} m² de pantalla LED`:''}.`,
     solucion_subtitulo: 'lo que vamos a producir',
@@ -923,7 +923,60 @@ const INVENTARIO = [
       for(let k=0;k<10;k++) o += `<circle cx="${x+w*0.03+(k+0.5)*w*0.94/10}" cy="${top+hh/2}" r="${r}" fill="${c}"/>`;   // 10 lentes
       return o;
     } },
+  // NEXO GEO M6: módulos de line array que se apilan en columna (medidas aproximadas). Sub GEO M18 va debajo.
+  { nombre:'NEXO GEO M6', re:/geo ?m6|nexo m6|m6 ?20/, tipo:'audio', w:0.42, h:0.16,
+    modulos(x, bottom, sc, n){   // columna de n módulos desde "bottom" hacia arriba, con el marco de rigging arriba
+      const w = this.w*sc, h = Math.max(4, this.h*sc);
+      let o = '';
+      for(let k=0; k<n; k++){ const y = bottom - (k+1)*h; o += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#1a1a1a" stroke="#888" stroke-width="1.2"/><rect x="${x+w*0.05}" y="${y+h*0.14}" width="${w*0.9}" height="${h*0.72}" fill="#141414"/>`; }
+      return o + `<rect x="${x-w*0.04}" y="${bottom - n*h - Math.max(3,0.05*sc)}" width="${w*1.08}" height="${Math.max(3,0.05*sc)}" fill="#555"/>`;
+    },
+    draw(x, f, sc){ return this.modulos(x, f, sc, 1); } },
+  { nombre:'NEXO Sub GEO M18', re:/sub ?geo ?m18|geo ?m18|msub ?18|sub ?m18/, tipo:'audio', w:0.71, h:0.56,
+    draw(x, f, sc){
+      const w = this.w*sc, h = this.h*sc, top = f - h;
+      let o = `<rect x="${x}" y="${top}" width="${w}" height="${h}" fill="#1a1a1a" stroke="#888" stroke-width="2"/><rect x="${x+w*0.05}" y="${top+h*0.06}" width="${w*0.9}" height="${h*0.86}" fill="#151515" stroke="#444" stroke-width="1"/>`;
+      for(let yy=top+h*0.14; yy<top+h*0.86; yy+=Math.max(4,h*0.09)) for(let xx=x+w*0.1; xx<x+w*0.92; xx+=Math.max(4,w*0.07)) o += `<circle cx="${xx}" cy="${yy}" r="${Math.max(0.8,w*0.012)}" fill="#333"/>`;   // rejilla
+      return o + `<rect x="${x+w*0.44}" y="${top+h*0.88}" width="${w*0.12}" height="${Math.max(2,h*0.03)}" fill="#ccc"/>`;
+    } },
+  // Luces colgadas de la truss (vista frontal). colgar(cx, y, sc): y = parte baja de la truss; h = hasta la lente.
+  { nombre:'Dage Hybrid', re:/hybrid|hibrid/, tipo:'luz', w:0.42, h:0.72,
+    colgar(cx, y, sc){   // cabeza móvil invertida: base arriba, yugo y cabezal con la lente hacia abajo
+      const w = this.w*sc, h = this.h*sc, bh = h*0.2, arm = Math.max(3, w*0.14), c = '#4a4a4a';
+      let o = `<rect x="${cx-w/2}" y="${y}" width="${w}" height="${bh}" fill="${c}" stroke="#777" stroke-width="1"/><rect x="${cx-w*0.18}" y="${y+bh*0.3}" width="${w*0.2}" height="${bh*0.45}" fill="#6fa8dc"/>`;
+      o += `<rect x="${cx-w*0.42}" y="${y+bh}" width="${arm}" height="${h*0.5}" fill="${c}" stroke="#777" stroke-width="1"/><rect x="${cx+w*0.42-arm}" y="${y+bh}" width="${arm}" height="${h*0.5}" fill="${c}" stroke="#777" stroke-width="1"/>`;
+      o += `<rect x="${cx-w*0.27}" y="${y+bh+h*0.08}" width="${w*0.54}" height="${h*0.66}" rx="${w*0.12}" fill="#3a3a3a" stroke="#777" stroke-width="1"/>`;
+      return o + `<ellipse cx="${cx}" cy="${y+h}" rx="${w*0.22}" ry="${Math.max(2,h*0.05)}" fill="#f3d27a"/>`;
+    } },
+  { nombre:'Big Color', re:/big ?colou?r/, tipo:'luz', w:0.33, h:0.42,
+    colgar(cx, y, sc){   // PAR LED de 12 lentes con su soporte
+      const w = this.w*sc, r = w/2, cy = y + this.h*sc - r;
+      let o = `<line x1="${cx-r*1.1}" y1="${cy}" x2="${cx}" y2="${y}" stroke="#666" stroke-width="2"/><line x1="${cx+r*1.1}" y1="${cy}" x2="${cx}" y2="${y}" stroke="#666" stroke-width="2"/>`;
+      o += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#2a2a2a" stroke="#888" stroke-width="1.5"/>`;
+      const lr = Math.max(1, r*0.13);
+      for(let k=0; k<8; k++){ const a = k*Math.PI/4; o += `<circle cx="${cx+Math.cos(a)*r*0.62}" cy="${cy+Math.sin(a)*r*0.62}" r="${lr}" fill="#bfe9ef"/>`; }
+      for(let k=0; k<4; k++){ const a = Math.PI/4 + k*Math.PI/2; o += `<circle cx="${cx+Math.cos(a)*r*0.24}" cy="${cy+Math.sin(a)*r*0.24}" r="${lr}" fill="#bfe9ef"/>`; }
+      return o;
+    } },
+  { nombre:'Leko', re:/leko|elipsoidal/, tipo:'luz', w:0.30, h:0.45,
+    colgar(cx, y, sc){   // elipsoidal: abrazadera, yugo y frente cuadrado de cuchillas con la lente
+      const w = this.w*sc, h = this.h*sc, fw = w*0.8, top = y + h - fw;
+      let o = `<rect x="${cx-2}" y="${y}" width="4" height="${top-y}" fill="#666"/><path d="M${cx-w/2},${top+fw*0.5} L${cx-w/2},${y+h*0.12} L${cx+w/2},${y+h*0.12} L${cx+w/2},${top+fw*0.5}" fill="none" stroke="#555" stroke-width="2"/>`;
+      o += `<rect x="${cx-fw/2}" y="${top}" width="${fw}" height="${fw}" fill="#111" stroke="#777" stroke-width="1.2"/>`;
+      return o + `<circle cx="${cx}" cy="${top+fw/2}" r="${fw*0.32}" fill="#f3e2b0"/>`;
+    } },
 ];
+// Line array GEO M6 en columna, sobre un Sub GEO M18 o, si no hay sub, sobre una base
+function geoArray(n, conSub){
+  const m6 = INVENTARIO.find(m=>m.nombre==='NEXO GEO M6'), sub = INVENTARIO.find(m=>m.nombre==='NEXO Sub GEO M18'), BASE = 0.5;
+  const pie = conSub ? sub.h : BASE;
+  return { nombre: conSub ? 'NEXO GEO M6 + Sub GEO M18' : 'NEXO GEO M6', tipo:'audio', w: conSub ? sub.w : m6.w, h: pie + n*m6.h + 0.05,
+    draw(x, f, sc){
+      const cx = x + this.w*sc/2, mx = cx - m6.w*sc/2;
+      const base = conSub ? sub.draw(x, f, sc) : `<rect x="${cx-2}" y="${f-BASE*sc}" width="4" height="${BASE*sc}" fill="#666"/><rect x="${mx}" y="${f-Math.max(3,0.04*sc)}" width="${m6.w*sc}" height="${Math.max(3,0.04*sc)}" fill="#555"/>`;
+      return base + m6.modulos(mx, f - pie*sc, sc, n);
+    } };
+}
 // PS15 en tubo sobre LS18 (como se monta en eventos grandes)
 const NEXO_STACK = { nombre:'NEXO PS15 + LS18', tipo:'audio', w:0.715, h:0.554+0.85+0.70,
   draw(x, f, sc){
@@ -978,7 +1031,10 @@ function sketchSvg(d, t){
   const esBarra = i => barra.re.test(norm(i.concepto)) || (i.det||[]).some(t=>barra.re.test(norm(t)));
   const nBarras = Math.min(8, Math.round(items.filter(esBarra).reduce((a,i)=>a+i.qty,0)));
   const barL = Math.ceil(nBarras/2), barR = Math.floor(nBarras/2);
-  let lights = items.filter(i=>!esBarra(i) && /luz|leko|par led|barra|movil|wash|beam|cabeza/.test(norm(i.concepto))).reduce((a,i)=>a+i.qty,0);
+  const lightItems = items.filter(i=>!esBarra(i) && (modeloDe(i.concepto)?.tipo==='luz' || /luz|leko|par led|barra|movil|wash|beam|cabeza/.test(norm(i.concepto))));
+  let lights = lightItems.reduce((a,i)=>a+i.qty,0);
+  // cada luz con su modelo del inventario (Dage Hybrid, Big Color, Leko); si no está, una luz genérica
+  const fixtures = lightItems.flatMap(i=>{ const m = modeloDe(i.concepto); return Array.from({length: Math.max(1, Math.round(i.qty))}, ()=>m?.tipo==='luz' ? m : null); });
   const lucesGenericas = !lights && !nBarras && items.some(i=>/iluminacion/.test(norm(i.concepto)));   // "Alquiler de iluminación" sin equipos: 6 luces referenciales
   if(lucesGenericas) lights = 6;
   const stream = items.some(i=>/streaming/.test(i.g) || /streaming|camara/.test(norm(i.concepto)));
@@ -989,6 +1045,15 @@ function sketchSvg(d, t){
     const porNombre = n => INVENTARIO.find(m=>m.nombre===n);
     if(personas > 300 || items.some(i=>/nexo/.test(norm(i.concepto)))) rawSpk.push(porNombre('NEXO PS15'), porNombre('NEXO LS18'), porNombre('NEXO PS15'), porNombre('NEXO LS18'));
     else rawSpk.push(porNombre('Bose L1 Pro16'), porNombre('Bose L1 Pro16'));
+  }
+  // GEO M6: los módulos se arman en 1 o 2 columnas (hasta 8 por lado), cada una sobre un Sub GEO M18 si hay
+  const nM6 = rawSpk.filter(m=>m.nombre==='NEXO GEO M6').length, nM18 = rawSpk.filter(m=>m.nombre==='NEXO Sub GEO M18').length;
+  if(nM6){
+    const resto = rawSpk.filter(m=>m.nombre!=='NEXO GEO M6' && m.nombre!=='NEXO Sub GEO M18'), cols = nM6 >= 2 ? 2 : 1, per = Math.min(8, Math.ceil(nM6/cols));
+    rawSpk.length = 0;
+    for(let k=0; k<cols; k++) rawSpk.push(geoArray(per, k < nM18));
+    for(let k=cols; k<nM18; k++) rawSpk.push(INVENTARIO.find(m=>m.nombre==='NEXO Sub GEO M18'));
+    rawSpk.push(...resto);
   }
   // cada PS15 con un LS18 se dibuja como un conjunto (PS15 en tubo sobre el LS18)
   const nPar = Math.min(rawSpk.filter(m=>m.nombre==='NEXO PS15').length, rawSpk.filter(m=>m.nombre==='NEXO LS18').length);
@@ -1036,14 +1101,24 @@ function sketchSvg(d, t){
   const label = (n, lx, ly, txt, end) => end && lx - 18 - String(txt).length*7.6 < 6 ? labelTxt(n, Math.max(lx, 17), FLOOR + 25, txt, false) : labelTxt(n, lx, ly, txt, end);
   const labelTxt = (n, lx, ly, txt, end) => `<circle cx="${lx}" cy="${ly}" r="11" fill="#fff"/><text x="${lx}" y="${ly+4.5}" text-anchor="middle" font-size="13" font-weight="700" ${F} fill="#000">${n}</text><text x="${end ? lx-18 : lx+18}" y="${ly+5}" font-size="14" ${F} fill="#fff"${end?' text-anchor="end"':''}>${esc(txt)}</text>`;
   // luces
+  let luzTxt = '', luzY = 74;
   if(lights){
     s += `<rect x="60" y="34" width="${W-120}" height="8" fill="#555"/>`;
-    const n = Math.min(lights, 10);
-    for(let i=0;i<n;i++){ const lx = 100 + i*((W-200)/Math.max(1,n-1)); s += `<polygon points="${lx-6},50 ${lx+6},50 ${lx+50},${FLOOR} ${lx-50},${FLOOR}" fill="#fff" opacity=".10"/><rect x="${lx-8}" y="42" width="16" height="14" fill="#888"/>`; }
+    const n = Math.min(lights, 10), lsc = Math.min(sc, 110);
+    // reparte los modelos de forma pareja (ej. 4 Dage y 4 Big Color quedan alternados)
+    const fx = lucesGenericas ? [] : Array.from({length:n}, (_,i)=>fixtures[Math.floor(i*fixtures.length/n)] || null);
+    for(let i=0;i<n;i++){
+      const lx = 100 + i*((W-200)/Math.max(1,n-1)), m = fx[i];
+      if(m){ const yb = 42 + m.h*lsc; s += `<polygon points="${lx-6},${yb} ${lx+6},${yb} ${lx+50},${FLOOR} ${lx-50},${FLOOR}" fill="#fff" opacity=".10"/>` + m.colgar(lx, 42, lsc); }
+      else s += `<polygon points="${lx-6},50 ${lx+6},50 ${lx+50},${FLOOR} ${lx-50},${FLOOR}" fill="#fff" opacity=".10"/><rect x="${lx-8}" y="42" width="16" height="14" fill="#888"/>`;
+    }
+    const modelos = [...new Set(fx.filter(Boolean).map(m=>m.nombre))];
+    luzTxt = lucesGenericas ? 'Iluminación' : modelos.length && fx.every(Boolean) ? `${modelos.join(' + ')} (${lights})` : `Iluminación (${lights})`;
+    if(fx.some(Boolean)) luzY = 18;   // con luces dibujadas, la etiqueta va sobre la truss
   }
   const nScreen = 1, nTotem = screens.length ? 2 : 1, nLight = 1 + (screens.length?1:0) + (totems.length?1:0), nAudio = nLight + (lights||nBarras?1:0);
   // parlantes (columna sobre el piso) a cada lado de las pantallas
-  const spkLabel = spkList.length && spkList.every(m=>m===spkList[0]) ? spkList[0].nombre : 'Audio';
+  const spkLabel = spkList.length && spkList.every(m=>m.nombre===spkList[0].nombre) ? spkList[0].nombre : 'Audio';
   const drawSpk = list => { list.forEach((m,k)=>{ s += m.draw(x, FLOOR, sc); if(k===0 && !labeledA){ s += label(nAudio, x + m.w*sc/2, FLOOR - (m.alto || m.h)*sc - 22, spkLabel, true); labeledA = true; } x += (m.w + 0.3)*sc; }); if(list.length) x += (GAP-0.3)*sc; };
   let labeledA = false;
   if(!seq.length && speakers) x = (W - Wm*sc)/2;
@@ -1090,7 +1165,7 @@ function sketchSvg(d, t){
   }
   if(mesaW) x += (mesaW + GAP)*sc;   // la mesa de audio no avanza x
   drawBars(barR, false);
-  if(lights) s += label(nLight, 70, 74, lucesGenericas ? 'Iluminación' : `Iluminación (${lights})`);
+  if(lights) s += label(nLight, 70, luzY, luzTxt);
   if(stream){
     [80, W-80].forEach(cx=>{ s += `<line x1="${cx}" y1="${FLOOR-40}" x2="${cx-22}" y2="${FLOOR+30}" stroke="#aaa" stroke-width="3"/><line x1="${cx}" y1="${FLOOR-40}" x2="${cx+22}" y2="${FLOOR+30}" stroke="#aaa" stroke-width="3"/><rect x="${cx-24}" y="${FLOOR-66}" width="40" height="26" fill="#ddd"/><rect x="${cx+16}" y="${FLOOR-60}" width="14" height="14" fill="#999"/>`; });
     s += `<text x="${W-80}" y="${FLOOR+44}" text-anchor="end" dx="40" font-size="13" ${F} fill="#fff">Cámaras de streaming</text>`;
@@ -1230,11 +1305,14 @@ function pagesGallery(d, t, n0){
   </div>${foot(n0+pages.length,d,t)}</div>`);
   return pages;
 }
+// Desglosado con precios por ítem: se agregan Valor unit. y Factor (veces que se cobra: días o jornadas)
+const conFactor = c => S.desglose && c.groups.some(g=>g.items.some(i=>i.unit!=null && i.total!=null));
+const fmtFactor = f => f==null ? '' : String(Math.round(f*100)/100);
 function invRows(c){
-  const rows = [];
+  const rows = [], fac = conFactor(c), span = fac ? 5 : 3;
   c.groups.forEach(g=>{
-    rows.push(`<tr class="grp"><td colspan="3">${esc(g.nombre)}${g.cortesia?'<span class="tag">Cortesía</span>':''}</td><td class="r">${money(g.subtotal)}</td></tr>`);
-    g.items.forEach(i=>rows.push(`<tr><td><b>${esc(i.concepto)}</b>${i.cortesia&&!g.cortesia?'<span class="tag">Cortesía</span>':''}</td><td class="c">${esc(i.cantidad||'')}</td><td>${esc(i.detalle||'')}</td><td class="r">${S.desglose && i.total!=null && !g.cortesia ? money(i.total) : ''}</td></tr>`));
+    rows.push(`<tr class="grp"><td colspan="${span}">${esc(g.nombre)}${g.cortesia?'<span class="tag">Cortesía</span>':''}</td><td class="r">${money(g.subtotal)}</td></tr>`);
+    g.items.forEach(i=>rows.push(`<tr><td><b>${esc(i.concepto)}</b>${i.cortesia&&!g.cortesia?'<span class="tag">Cortesía</span>':''}</td><td class="c">${esc(i.cantidad||'')}</td><td>${esc(i.detalle||'')}</td>${fac ? `<td class="r">${i.unit!=null ? money(i.unit) : ''}</td><td class="c">${i.unit!=null ? fmtFactor(i.factor) : ''}</td>` : ''}<td class="r">${S.desglose && i.total!=null && !g.cortesia ? money(i.total) : ''}</td></tr>`));
   });
   return rows;
 }
@@ -1244,8 +1322,9 @@ function pagesInvestment(d, c, t, n0){
   const last = chunks.length-1;
   const lastRoom = PER - (chunks[last]?.length||0);
   const needSplitTotals = lastRoom < 13;
-  const head = `<thead><tr><th>Rubro</th><th class="c">Cant.</th><th>Incluye</th><th class="r">Total USD</th></tr></thead>`;
-  const sums = `<tr class="sum first"><td colspan="3">Subtotal</td><td class="r">${money(c.subtotal)}</td></tr>${c.descuento?`<tr class="sum"><td colspan="3">Descuento</td><td class="r">−${money(c.descuento)}</td></tr>`:''}<tr class="sum"><td colspan="3">${d.impuesto_nombre||'ITBMS'}${d.itbms_aplica?'':' (no aplica)'}</td><td class="r">${money(c.itbms)}</td></tr>`;
+  const fac = conFactor(c), span = fac ? 5 : 3;
+  const head = `<thead><tr><th>Rubro</th><th class="c">Cant.</th><th>Incluye</th>${fac ? '<th class="r">Valor unit.</th><th class="c">Factor</th>' : ''}<th class="r">Total USD</th></tr></thead>`;
+  const sums = `<tr class="sum first"><td colspan="${span}">Subtotal</td><td class="r">${money(c.subtotal)}</td></tr>${c.descuento?`<tr class="sum"><td colspan="${span}">Descuento</td><td class="r">−${money(c.descuento)}</td></tr>`:''}<tr class="sum"><td colspan="${span}">${d.impuesto_nombre||'ITBMS'}${d.itbms_aplica?'':' (no aplica)'}</td><td class="r">${money(c.itbms)}</td></tr>`;
   const paying = c.groups.filter(g=>g.subtotal>0);
   const colors = t.bg === '#000000' ? ['#000000', '#5c5c5c', '#9a9a9a', '#c4c4c4', '#e0e0e0'] : [t.bg, '#000000', '#7a7a7a', '#b5b5b5', '#d9d9d9'];
   const dist = c.subtotal>0 ? `<div class="dist"><h4>Distribución de la inversión</h4><div class="barx">${paying.map((g,i)=>`<i style="width:${g.subtotal/c.subtotal*100}%;background:${colors[i%colors.length]}"></i>`).join('')}</div><div class="legend">${paying.map((g,i)=>`<span><s style="background:${colors[i%colors.length]}"></s><b>${esc(g.nombre)}</b> ${money(g.subtotal)} · ${Math.round(g.subtotal/c.subtotal*100)}%</span>`).join('')}</div></div>` : '';
