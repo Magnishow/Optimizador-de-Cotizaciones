@@ -127,6 +127,7 @@ textarea{width:100%; min-height:90px; border:1px solid var(--line); background:v
 .gallery{display:grid; grid-template-columns:1fr 1fr; gap:10px}
 .gallery .render{height:186px; margin:0}
 .rcap{font-size:10.5px; color:#555; margin:0 0 22px}
+.page.apretada .lead{font-size:13px; margin-bottom:14px} .page.apretada .rcap{margin-bottom:14px} .page.apretada .incl{gap:8px 24px} .page.apretada .incl b{font-size:12.5px} .page.apretada .incl span{font-size:11.5px; line-height:1.4}
 .incl{display:grid; grid-template-columns:1fr 1fr; gap:14px 28px; margin:0; padding:0; list-style:none}
 .incl li{padding-left:20px; position:relative}
 .incl li::before{content:""; position:absolute; left:0; top:6px; width:10px; height:10px; background:var(--pacc); transform:skewX(-10deg)}
@@ -161,6 +162,7 @@ table.inv tr.sum.first td{border-top:2px solid #000; padding-top:12px}
 .benef li{border-top:4px solid var(--pacc); padding-top:8px}
 .benef b{display:block; font-weight:600; font-size:12.5px}
 .benef span{display:block; font-size:11.5px; color:#333; line-height:1.45}
+.page.apretada table.inv td{padding-top:6px; padding-bottom:6px} .page.apretada table.inv tr.grp td{border-top-width:6px} .page.apretada .dist, .page.apretada .benef{margin-top:16px} .page.apretada .benef ul{gap:8px 24px} .page.apretada .benef span{font-size:11px; line-height:1.4}
 
 /* conditions */
 table.cal{width:100%; border-collapse:collapse; font-size:12px; margin-bottom:24px}
@@ -775,7 +777,7 @@ function buildData(parsed, form){
   if(has(/montaje|productor|coordinacion|transporte/)) sol.push('Coordinamos producción, montaje y transporte para que su equipo se concentre en el contenido y los invitados.');
 
   const incluye = groups.map(gr=>{
-    const low = s => /^[A-ZÁÉÍÓÚÑ][a-záéíóúñ]/.test(s) ? s.charAt(0).toLowerCase()+s.slice(1) : s;
+    const low = s => /^[A-ZÁÉÍÓÚÑ][a-záéíóúñ]*(?=[\s,/]|$)/.test(s) ? s.charAt(0).toLowerCase()+s.slice(1) : s;
     const it = [...new Set(gr.items.map(i=>low(i.concepto.replace(/\s+P\d.*$/,'').replace(/\s+\d+$/,''))))];
     const txt = cap(listEs(it.length>4 ? [...it.slice(0,4), 'más'] : it)) + '.';
     return { titulo: gr.nombre, texto: txt.replace(' y más.', ' y otros elementos.'), cortesia: gr.items.every(i=>i.cortesia) };
@@ -1408,7 +1410,24 @@ function renderPages(){
   const rev = [...c.checks.filter(x=>!(d.revision||[]).some(r=>r.texto.startsWith('Los rubros'))), ...(d.revision||[]), ...extraReview];
   $('review').hidden = !rev.length;
   $('reviewList').innerHTML = rev.map(r=>`<li><b>${esc(r.tipo)}</b><span>${esc(r.texto)}</span></li>`).join('');
+  ajustaPaginas();
   fitPages();
+  document.fonts?.ready.then(()=>{ if(S.data) ajustaPaginas(); });   // las fuentes cambian el alto del texto
+}
+// Si el contenido no cabe en la página (muchos rubros o renders), achica las imágenes y luego aprieta el texto,
+// para que nada se salga ni quede debajo del pie de página
+function ajustaPaginas(){
+  $('pages').querySelectorAll('.page').forEach(p=>{
+    const pad = p.querySelector('.pad'); if(!pad) return;
+    const renders = [...pad.querySelectorAll(':scope > .render, :scope > .render-row .render')];
+    renders.forEach(r=>{ r.style.height = ''; }); p.classList.remove('apretada');
+    const sobra = () => pad.scrollHeight > pad.clientHeight + 1;
+    if(!sobra()) return;
+    const base = renders.map(r=>r.offsetHeight);
+    const encoge = ()=>{ for(let f=0.95; f>=0.5 && sobra(); f-=0.05) renders.forEach((r,i)=>{ r.style.height = Math.round(base[i]*f)+'px'; }); };
+    encoge();
+    if(sobra()){ p.classList.add('apretada'); renders.forEach(r=>{ r.style.height = ''; }); encoge(); }
+  });
 }
 function fitPages(){
   const w = Math.min(816, $('pages').clientWidth - 2);
@@ -1416,6 +1435,7 @@ function fitPages(){
   $('pages').querySelectorAll('.pagewrap').forEach(pw=>{ pw.style.width = 816*s+'px'; pw.style.height = 1056*s+'px'; pw.firstElementChild.style.transform = `scale(${s})`; });
 }
 addEventListener('resize', fitPages);
+let ajusteTimer; $('pages').addEventListener('input', ()=>{ clearTimeout(ajusteTimer); ajusteTimer = setTimeout(ajustaPaginas, 600); });   // al editar texto sobre la propuesta
 
 /* ——— Export ——— */
 $('btnPrint').onclick = ()=>window.print();
