@@ -54,6 +54,16 @@ body::before{content:""; position:fixed; inset:0 0 auto; height:env(safe-area-in
 .drop strong{color:var(--ink); font-weight:600}
 .drop input{position:absolute; width:1px; height:1px; opacity:0; pointer-events:none}
 .filechip{display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:8px; padding:8px 10px; background:var(--panel); font-size:13px}
+.saved{list-style:none; margin:0; padding:0; max-height:260px; overflow:auto}
+.saved li{display:flex; gap:8px; align-items:flex-start; padding:8px 0; border-bottom:1px solid var(--line)}
+.saved li:last-child{border-bottom:0}
+.saved li.actual{box-shadow:inset 4px 0 0 var(--acc); padding-left:10px}
+.saved .info{flex:1; min-width:0; cursor:pointer}
+.saved .info b{display:block; font-size:14px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.saved .info span{display:block; font-size:12px; color:var(--muted)}
+.saved button{border:0; background:none; cursor:pointer; font-size:12.5px; text-decoration:underline; color:var(--muted); padding:2px 0}
+.saved-acts{display:flex; gap:8px; margin-top:10px}
+.saved-acts .btn{padding:7px 12px; font-size:13px}
 .filechip button{border:0; background:none; cursor:pointer; text-decoration:underline; font-size:13px}
 details.paste{margin-top:8px; font-size:13px} details.paste summary{cursor:pointer; color:var(--muted)}
 textarea{width:100%; min-height:90px; border:1px solid var(--line); background:var(--surface); padding:10px; resize:vertical; font-size:13.5px}
@@ -211,6 +221,13 @@ table.cal{margin-bottom:18px}
 
 <div class="layout">
 <aside class="side">
+  <section class="step" id="savedStep">
+    <h2>Mis propuestas</h2>
+    <p class="help">Se guardan solas en este navegador mientras trabajas. Ábrelas para seguir editando sin volver a subir la cotización.</p>
+    <ul class="saved" id="savedList"></ul>
+    <div class="saved-acts"><button class="btn" type="button" id="btnNueva">Nueva propuesta</button></div>
+  </section>
+
   <section class="step">
     <h2>Ejecutivo</h2>
     <p class="help">Define el color de la plantilla. El nombre no aparece en la propuesta.</p>
@@ -429,9 +446,24 @@ wireDrop($('dropQuote'), $('fileQuote'), async files=>{
   const f = files.find(f=>/\.(pdf|xlsx|xlsm|xls|csv|ods|docx)$/i.test(f.name) || f.type==='application/pdf');
   if(!f){ status(files.some(f=>/\.doc$/i.test(f.name)) ? 'Ese Word es del formato antiguo (.doc): guárdalo como .docx o PDF y vuelve a subirlo.' : 'Sube la cotización en PDF, Excel (.xlsx) o Word (.docx), o pega su texto.', true); return; }
   status('Leyendo la cotización…');
+  const esPdf = f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+  const meta = esPdf ? await infoPdf(f) : { estado:null, jspdf:false };
+  if(meta.estado){   // PDF descargado de esta herramienta: trae sus datos
+    if(S.data) await guarda();
+    const ya = meta.estado.id ? await DB.una(meta.estado.id).catch(()=>null) : null;
+    if(ya){ await abreGuardada(ya.id); status('Esta propuesta ya estaba en Mis propuestas: se abrió la versión guardada, con tus últimos cambios.'); return; }
+    S.saveId = meta.estado.id || nuevoId(); aplicaEstado(meta.estado); listaGuardadas();
+    status('Propuesta reabierta desde el PDF. Ya quedó en Mis propuestas; vuelve a subir los renders si los tenía.');
+    return;
+  }
   try{
-    S.quoteText = await quoteFileText(f); S.quoteName = f.name;
-    if(S.quoteText.length < 80) throw new Error('vacío');
+    const texto = await quoteFileText(f);
+    if(texto.replace(/--- P[aá]gina \d+ ---/g, '').trim().length < 80){
+      if(meta.jspdf){ status('Este PDF es una propuesta ya descargada de esta herramienta y sus páginas son imágenes, así que no se puede leer. Ábrela desde Mis propuestas o sube la cotización original. Las propuestas que descargues desde ahora sí se pueden volver a abrir subiendo el PDF.', true); return; }
+      throw new Error('vacío');
+    }
+    if(S.data) await guarda();
+    S.saveId = nuevoId(); S.quoteText = texto; S.quoteName = f.name;
     $('quoteChip').innerHTML = `<div class="filechip"><span>${esc(f.name)}</span><button type="button" id="rmQuote">Quitar</button></div>`;
     $('rmQuote').onclick = ()=>{ S.quoteText=''; S.quoteName=''; $('quoteChip').innerHTML=''; };
     try{ fillForm(parseQuote(S.quoteText)); $('go').click(); }catch(_){}
@@ -1394,6 +1426,7 @@ function pageClosing(d, c, t, n){
 
 function renderPages(){
   const d = S.data; if(!d) return;
+  S.editado = false; if(!S.saveId) S.saveId = nuevoId();
   const t = theme(), c = compute(d);
   if(!S.renders.length && d._raw) S.sketch = sketchSvg(d, t);
   const html = [pageCover(d,c,t)];
@@ -1412,6 +1445,7 @@ function renderPages(){
   $('reviewList').innerHTML = rev.map(r=>`<li><b>${esc(r.tipo)}</b><span>${esc(r.texto)}</span></li>`).join('');
   ajustaPaginas();
   fitPages();
+  guardaPronto();
   document.fonts?.ready.then(()=>{ if(S.data) ajustaPaginas(); });   // las fuentes cambian el alto del texto
 }
 // Si el contenido no cabe en la página (muchos rubros o renders), achica las imágenes y luego aprieta el texto,
@@ -1458,9 +1492,11 @@ $('btnPdf').onclick = async ()=>{
       pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 612, 792);
     }
     } finally { if(prevTheme) root.dataset.theme = prevTheme; else delete root.dataset.theme; }
-    const blob = pdf.output('blob');
     const d = S.data || {};
     const name = `Propuesta ${d.numero_cotizacion||''} ${d.cliente||'Magnishow'}`.replace(/[\\/:*?"<>|]+/g,'').replace(/\s+/g,' ').trim() + '.pdf';
+    // Los datos van dentro del PDF (sin renders) para poder reabrirlo subiéndolo a la herramienta
+    try{ pdf.setProperties({ title: name.replace(/\.pdf$/,''), subject:'Propuesta comercial Magnishow', creator:'Optimizador de propuestas Magnishow', keywords: PDF_MARCA + aBase64(JSON.stringify({ ...estadoActual(), id: S.saveId })) }); }catch(_){}
+    const blob = pdf.output('blob');
     const dl = await downloadsPromise;
     if(dl) await dl.save({ filename:name, data:blob });
     else pdf.save(name);
@@ -1470,6 +1506,91 @@ $('btnPdf').onclick = async ()=>{
     else status('No se pudo generar el PDF. Usa Imprimir y guarda como PDF.', true);
   }finally{ btn.disabled = false; btn.textContent = label; }
 };
+
+/* ——— Mis propuestas: guardado en este navegador (IndexedDB) ———
+   Cada propuesta guarda todo lo necesario para rearmarla: texto de la cotización, formulario, plantilla,
+   cláusulas, forma de pago, renders y los textos editados a mano. El PDF descargado lleva los mismos datos
+   (sin renders) en sus propiedades, así que también se puede volver a abrir subiéndolo. */
+const DB = (()=>{
+  let dbp = null;
+  const abre = () => dbp || (dbp = new Promise((ok, mal)=>{ const r = indexedDB.open('magnishow-propuestas', 1); r.onupgradeneeded = ()=>r.result.createObjectStore('propuestas', { keyPath:'id' }); r.onsuccess = ()=>ok(r.result); r.onerror = ()=>mal(r.error); }));
+  const tx = async (modo, fn) => { const db = await abre(); return new Promise((ok, mal)=>{ const t = db.transaction('propuestas', modo), st = t.objectStore('propuestas'); const r = fn(st); t.oncomplete = ()=>ok(r?.result); t.onerror = ()=>mal(t.error); }); };
+  return { todas: ()=>tx('readonly', st=>st.getAll()), una: id=>tx('readonly', st=>st.get(id)), pon: v=>tx('readwrite', st=>st.put(v)), borra: id=>tx('readwrite', st=>st.delete(id)) };
+})();
+const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+function estadoActual(){
+  return {
+    exec: S.exec, quoteText: S.quoteText, quoteName: S.quoteName, quotePaste: $('quotePaste').value,
+    form: { cliente:$('fCliente').value, evento:$('fEvento').value, recinto:$('fRecinto').value, fecha:$('fFecha').value, context:$('context').value },
+    desglose: !!S.desglose, clauses: [...S.clauses], customClauses: $('customClauses').value,
+    pago: document.querySelector('input[name="pago"]:checked')?.value || 'adelantado', pagoDias: $('pagoDias').value, pagoTexto: $('pagoTexto').value
+  };
+}
+let guardaTimer;
+const guardaPronto = () => { clearTimeout(guardaTimer); guardaTimer = setTimeout(guarda, 800); };
+async function guarda(){
+  if(!S.data || !S.saveId) return;
+  const d = S.data, c = compute(d);
+  const reg = { id: S.saveId, guardada: Date.now(), cliente: d.cliente || '', evento: d.evento || '', numero: d.numero_cotizacion || '', total: c.total,
+    estado: { ...estadoActual(), renders: S.renders.slice(), ediciones: S.editado ? $('pages').innerHTML : null } };
+  try{ await DB.pon(reg); listaGuardadas(); }catch(_){ status('No se pudo guardar la propuesta en este navegador (¿modo privado o sin espacio?).', true); }
+}
+async function listaGuardadas(){
+  let todas = [];
+  try{ todas = (await DB.todas()).sort((a,b)=>b.guardada-a.guardada); }catch(_){}
+  const f = ts => { const d = new Date(ts); return `${d.getDate()} ${MESES[d.getMonth()].slice(0,3)} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+  $('savedList').innerHTML = todas.length ? todas.map(r=>`<li class="${r.id===S.saveId?'actual':''}" data-id="${r.id}"><div class="info" role="button" tabindex="0"><b>${esc(r.cliente || r.evento || 'Sin cliente')}</b><span>${esc([r.numero?`Cotización ${r.numero}`:'', money(r.total), `guardada ${f(r.guardada)}`].filter(Boolean).join(' · '))}</span></div><button type="button" class="del">Borrar</button></li>`).join('')
+    : `<li><span class="info"><span>Todavía no hay propuestas guardadas. Al generar una, aparece aquí.</span></span></li>`;
+  $('savedList').querySelectorAll('li[data-id]').forEach(li=>{
+    const abrir = ()=>abreGuardada(li.dataset.id);
+    li.querySelector('.info').onclick = abrir;
+    li.querySelector('.info').onkeydown = e=>{ if(e.key==='Enter') abrir(); };
+    li.querySelector('.del').onclick = async ()=>{
+      const nom = li.querySelector('b').textContent;
+      if(!confirm(`¿Borrar la propuesta de ${nom}? No se puede recuperar.`)) return;
+      await DB.borra(li.dataset.id); if(S.saveId === li.dataset.id) S.saveId = null; listaGuardadas();
+    };
+  });
+}
+// Rearma una propuesta desde su estado guardado (de la lista o de un PDF descargado)
+function aplicaEstado(e){
+  S.exec = EXECS.some(x=>x[0]===e.exec) ? e.exec : S.exec; renderExecs(); paintChrome();
+  S.quoteText = e.quoteText || ''; S.quoteName = e.quoteName || '';
+  $('quoteChip').innerHTML = S.quoteName ? `<div class="filechip"><span>${esc(S.quoteName)}</span><button type="button" id="rmQuote">Quitar</button></div>` : '';
+  if($('rmQuote')) $('rmQuote').onclick = ()=>{ S.quoteText=''; S.quoteName=''; $('quoteChip').innerHTML=''; };
+  $('quotePaste').value = e.quotePaste || '';
+  const fm = e.form || {}; $('fCliente').value = fm.cliente || ''; $('fEvento').value = fm.evento || ''; $('fRecinto').value = fm.recinto || ''; $('fFecha').value = fm.fecha || ''; $('context').value = fm.context || '';
+  S.desglose = !!e.desglose; $('desglose').checked = S.desglose;
+  S.clauses = new Set(Array.isArray(e.clauses) ? e.clauses : DEFAULT_CLAUSES.map((_,i)=>i)); renderClauses();
+  $('customClauses').value = e.customClauses || '';
+  const r = document.querySelector(`input[name="pago"][value="${e.pago || 'adelantado'}"]`) || document.querySelector('input[name="pago"][value="adelantado"]'); r.checked = true;
+  $('pagoDias').value = e.pagoDias || 30; $('pagoTexto').value = e.pagoTexto || ''; $('pagoTexto').hidden = r.value !== 'otra';
+  S.renders = Array.isArray(e.renders) ? e.renders.slice(0, MAX_RENDERS) : []; renderThumbs();
+  $('go').click();
+  if(e.ediciones && S.data){ $('pages').innerHTML = e.ediciones; S.editado = true; fitPages(); }
+}
+async function abreGuardada(id){
+  const reg = await DB.una(id); if(!reg) return;
+  S.saveId = reg.id; aplicaEstado(reg.estado); listaGuardadas();
+  status(`Propuesta abierta: ${reg.cliente || reg.evento || 'sin cliente'}. Los cambios se guardan solos.`);
+  if(innerWidth < 900) $('pages').scrollIntoView();
+}
+// Datos de la propuesta dentro del PDF descargado (propiedad Keywords), en base64 para no perder tildes
+const PDF_MARCA = 'MGPROP1:';
+const aBase64 = txt => { const b = new TextEncoder().encode(txt); let s = ''; for(let i=0;i<b.length;i+=0x8000) s += String.fromCharCode(...b.subarray(i, i+0x8000)); return btoa(s); };
+const deBase64 = b64 => new TextDecoder().decode(Uint8Array.from(atob(b64), c=>c.charCodeAt(0)));
+async function infoPdf(file){
+  try{
+    const lib = window.pdfjsLib; lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const pdf = await lib.getDocument({data: await file.arrayBuffer()}).promise;
+    const { info } = await pdf.getMetadata();
+    const k = info?.Keywords || '';
+    return { estado: k.startsWith(PDF_MARCA) ? JSON.parse(deBase64(k.slice(PDF_MARCA.length))) : null, jspdf: /jsPDF/i.test(info?.Producer || '') };
+  }catch(_){ return { estado:null, jspdf:false }; }
+}
+$('btnNueva').onclick = ()=>{ if(S.data) guarda(); setTimeout(()=>location.reload(), 150); };
+$('pages').addEventListener('input', ()=>{ S.editado = true; guardaPronto(); });
+listaGuardadas();
 
 /* ——— Init ——— */
 document.querySelectorAll('input[name="pago"]').forEach(r=>r.onchange = ()=>{ $('pagoTexto').hidden = r.value !== 'otra' || !r.checked; if(r.value === 'otra' && r.checked) $('pagoTexto').focus(); if(S.data) renderPages(); });
