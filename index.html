@@ -265,7 +265,9 @@ table.cal{margin-bottom:18px}
       <label>Evento<input id="fEvento" placeholder="Nombre del evento"></label>
       <label>Recinto<input id="fRecinto" placeholder="Lugar del evento"></label>
       <label>Fecha del evento<input id="fFecha" type="date"></label>
-      <label>Quién firma por el cliente<input id="fFirmaNombre" placeholder="Representante legal"></label>
+      <label>Quién firma por el cliente<input id="fFirmaNombre" placeholder="Nombre de quien firma"></label>
+      <label>Cargo<input id="fFirmaCargo" list="cargos" value="Representante legal" placeholder="Representante legal"></label>
+      <datalist id="cargos"><option value="Representante legal"><option value="Gerente general"><option value="Gerente de mercadeo"><option value="Director(a) de eventos"><option value="Apoderado(a)"></datalist>
       <label class="drop" id="dropCedula" style="padding:10px;font-size:13px"><input type="file" id="fileCedula" accept="image/*,.pdf,application/pdf"><strong>Adjunta su cédula</strong> y el nombre se llena solo</label>
     </div>
   </section>
@@ -1440,8 +1442,10 @@ function pageClosing(d, c, t, n){
     ${cal?`<div class="cond"><h4>Calendario</h4><table class="cal"><tbody>${cal}</tbody></table></div>`:''}
     <div class="cond"><h4>Para avanzar necesitamos</h4></div>
     <ol class="needs">${needs}</ol>
-    ${(()=>{ const fn = $('fFirmaNombre').value.trim();   // quien firma por el cliente; vacío = representante legal
-      return `<div class="sign"><div><i></i>${fn ? `<b>${esc(fn)}</b>` : 'Firma del representante legal'}<br><span>${esc(d.cliente || 'Cliente')}</span></div>`; })()}<div><i></i>Firma responsable Magnishow<br><span>Fecha:</span></div></div>
+    ${(()=>{ const fn = $('fFirmaNombre').value.trim(), fc = $('fFirmaCargo').value.trim() || 'Representante legal', rl = /^representante legal$/i.test(fc);   // quien firma por el cliente
+      const arriba = fn ? `<b>${esc(fn)}</b>` : rl ? 'Firma del representante legal' : 'Firma autorizada';
+      const abajo = fn || !rl ? [fc, d.cliente || 'Cliente'] : [d.cliente || 'Cliente'];
+      return `<div class="sign"><div><i></i>${arriba}<br><span>${esc(abajo.join(' · '))}</span></div>`; })()}<div><i></i>Firma responsable Magnishow<br><span>Fecha:</span></div></div>
     <p class="signnote">${d.pais==='VE' ? 'Favor anexar el documento de identidad del representante legal de la empresa.' : 'Favor anexar el Aviso de Operaciones y el documento de identidad del representante legal de la empresa.'}</p>
     <div class="contact">${(c => `<b>${esc(c.line1)}</b>${[c.line2, c.line3, c.line4].filter(Boolean).map(esc).join('<br>')}`)(d.contacto || CONTACT)}</div>
   </div>
@@ -1546,7 +1550,7 @@ const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice
 function estadoActual(){
   return {
     exec: S.exec, quoteText: S.quoteText, quoteName: S.quoteName, quotePaste: $('quotePaste').value,
-    form: { cliente:$('fCliente').value, evento:$('fEvento').value, recinto:$('fRecinto').value, fecha:$('fFecha').value, context:$('context').value, firmaNombre:$('fFirmaNombre').value },
+    form: { cliente:$('fCliente').value, evento:$('fEvento').value, recinto:$('fRecinto').value, fecha:$('fFecha').value, context:$('context').value, firmaNombre:$('fFirmaNombre').value, firmaCargo:$('fFirmaCargo').value },
     desglose: !!S.desglose, clauses: [...S.clauses], customClauses: $('customClauses').value,
     pago: document.querySelector('input[name="pago"]:checked')?.value || 'adelantado', pagoDias: $('pagoDias').value, pagoTexto: $('pagoTexto').value
   };
@@ -1584,7 +1588,7 @@ function aplicaEstado(e){
   $('quoteChip').innerHTML = S.quoteName ? `<div class="filechip"><span>${esc(S.quoteName)}</span><button type="button" id="rmQuote">Quitar</button></div>` : '';
   if($('rmQuote')) $('rmQuote').onclick = ()=>{ S.quoteText=''; S.quoteName=''; $('quoteChip').innerHTML=''; };
   $('quotePaste').value = e.quotePaste || '';
-  const fm = e.form || {}; $('fCliente').value = fm.cliente || ''; $('fEvento').value = fm.evento || ''; $('fRecinto').value = fm.recinto || ''; $('fFecha').value = fm.fecha || ''; $('context').value = fm.context || ''; $('fFirmaNombre').value = fm.firmaNombre || '';
+  const fm = e.form || {}; $('fCliente').value = fm.cliente || ''; $('fEvento').value = fm.evento || ''; $('fRecinto').value = fm.recinto || ''; $('fFecha').value = fm.fecha || ''; $('context').value = fm.context || ''; $('fFirmaNombre').value = fm.firmaNombre || ''; $('fFirmaCargo').value = fm.firmaCargo || 'Representante legal';
   S.desglose = !!e.desglose; $('desglose').checked = S.desglose;
   S.clauses = new Set(Array.isArray(e.clauses) ? e.clauses : DEFAULT_CLAUSES.map((_,i)=>i)); renderClauses();
   $('customClauses').value = e.customClauses || '';
@@ -1702,7 +1706,7 @@ document.querySelectorAll('input[name="pago"]').forEach(r=>r.onchange = ()=>{ $(
 ['pagoDias','pagoTexto'].forEach(id=>$(id).addEventListener('input', ()=>{ const v = id === 'pagoDias' ? 'credito' : 'otra'; document.querySelector(`input[name="pago"][value="${v}"]`).checked = true; $('pagoTexto').hidden = v !== 'otra'; clearTimeout(formTimer); formTimer = setTimeout(()=>{ if(S.data) renderPages(); }, 400); }));
 $('desglose').onchange = e=>{ S.desglose = e.target.checked; if(S.data) renderPages(); };
 let formTimer;
-['fFirmaNombre'].forEach(id=>$(id).addEventListener('input', ()=>{ clearTimeout(formTimer); formTimer = setTimeout(()=>{ if(S.data) renderPages(); }, 400); }));
+['fFirmaNombre','fFirmaCargo'].forEach(id=>$(id).addEventListener('input', ()=>{ clearTimeout(formTimer); formTimer = setTimeout(()=>{ if(S.data) renderPages(); }, 400); }));
 ['fCliente','fEvento','fRecinto','fFecha','context'].forEach(id=>$(id).addEventListener('input', ()=>{ clearTimeout(formTimer); formTimer = setTimeout(()=>{ if(S.data) $('go').click(); }, 500); }));
 renderExecs(); renderClauses(); paintChrome();
 
