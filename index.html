@@ -265,6 +265,8 @@ table.cal{margin-bottom:18px}
       <label>Evento<input id="fEvento" placeholder="Nombre del evento"></label>
       <label>Recinto<input id="fRecinto" placeholder="Lugar del evento"></label>
       <label>Fecha del evento<input id="fFecha" type="date"></label>
+      <label>Quién firma por el cliente<input id="fFirmaNombre" placeholder="Representante legal"></label>
+      <label class="drop" id="dropCedula" style="padding:10px;font-size:13px"><input type="file" id="fileCedula" accept="image/*,.pdf,application/pdf"><strong>Adjunta su cédula</strong> y el nombre se llena solo</label>
     </div>
   </section>
 
@@ -1416,7 +1418,8 @@ function pageClosing(d, c, t, n){
     ${cal?`<div class="cond"><h4>Calendario</h4><table class="cal"><tbody>${cal}</tbody></table></div>`:''}
     <div class="cond"><h4>Para avanzar necesitamos</h4></div>
     <ol class="needs">${needs}</ol>
-    <div class="sign"><div><i></i>Firma del representante legal<br><span>${esc(d.cliente||'Cliente')}</span></div><div><i></i>Firma responsable Magnishow<br><span>Fecha:</span></div></div>
+    ${(()=>{ const fn = $('fFirmaNombre').value.trim();   // quien firma por el cliente; vacío = representante legal
+      return `<div class="sign"><div><i></i>${fn ? `<b>${esc(fn)}</b>` : 'Firma del representante legal'}<br><span>${esc(d.cliente || 'Cliente')}</span></div>`; })()}<div><i></i>Firma responsable Magnishow<br><span>Fecha:</span></div></div>
     <p class="signnote">${d.pais==='VE' ? 'Favor anexar el documento de identidad del representante legal de la empresa.' : 'Favor anexar el Aviso de Operaciones y el documento de identidad del representante legal de la empresa.'}</p>
     <div class="contact">${(c => `<b>${esc(c.line1)}</b>${[c.line2, c.line3, c.line4].filter(Boolean).map(esc).join('<br>')}`)(d.contacto || CONTACT)}</div>
   </div>
@@ -1521,7 +1524,7 @@ const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice
 function estadoActual(){
   return {
     exec: S.exec, quoteText: S.quoteText, quoteName: S.quoteName, quotePaste: $('quotePaste').value,
-    form: { cliente:$('fCliente').value, evento:$('fEvento').value, recinto:$('fRecinto').value, fecha:$('fFecha').value, context:$('context').value },
+    form: { cliente:$('fCliente').value, evento:$('fEvento').value, recinto:$('fRecinto').value, fecha:$('fFecha').value, context:$('context').value, firmaNombre:$('fFirmaNombre').value },
     desglose: !!S.desglose, clauses: [...S.clauses], customClauses: $('customClauses').value,
     pago: document.querySelector('input[name="pago"]:checked')?.value || 'adelantado', pagoDias: $('pagoDias').value, pagoTexto: $('pagoTexto').value
   };
@@ -1559,7 +1562,7 @@ function aplicaEstado(e){
   $('quoteChip').innerHTML = S.quoteName ? `<div class="filechip"><span>${esc(S.quoteName)}</span><button type="button" id="rmQuote">Quitar</button></div>` : '';
   if($('rmQuote')) $('rmQuote').onclick = ()=>{ S.quoteText=''; S.quoteName=''; $('quoteChip').innerHTML=''; };
   $('quotePaste').value = e.quotePaste || '';
-  const fm = e.form || {}; $('fCliente').value = fm.cliente || ''; $('fEvento').value = fm.evento || ''; $('fRecinto').value = fm.recinto || ''; $('fFecha').value = fm.fecha || ''; $('context').value = fm.context || '';
+  const fm = e.form || {}; $('fCliente').value = fm.cliente || ''; $('fEvento').value = fm.evento || ''; $('fRecinto').value = fm.recinto || ''; $('fFecha').value = fm.fecha || ''; $('context').value = fm.context || ''; $('fFirmaNombre').value = fm.firmaNombre || '';
   S.desglose = !!e.desglose; $('desglose').checked = S.desglose;
   S.clauses = new Set(Array.isArray(e.clauses) ? e.clauses : DEFAULT_CLAUSES.map((_,i)=>i)); renderClauses();
   $('customClauses').value = e.customClauses || '';
@@ -1592,11 +1595,59 @@ $('btnNueva').onclick = ()=>{ if(S.data) guarda(); setTimeout(()=>location.reloa
 $('pages').addEventListener('input', ()=>{ S.editado = true; guardaPronto(); });
 listaGuardadas();
 
+/* ——— Cédula de quien firma: se lee el nombre con OCR (Tesseract) dentro del navegador ———
+   La imagen no sale del computador ni se guarda: solo se usa el nombre. El motor (~4 MB) se descarga la primera vez.
+   tesseract.js viene de cdnjs; su núcleo y el idioma español no están en cdnjs y vienen de jsDelivr. */
+const OCR = { js:'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js', worker:'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/worker.min.js',
+  core:'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1', lang:'https://cdn.jsdelivr.net/npm/@tesseract.js-data/spa@1.0.0/4.0.0_best_int' };
+const tituloNombre = s => s.toLowerCase().replace(/(^|[\s-])([a-záéíóúñü])/g, (m,a,c)=>a+c.toUpperCase()).replace(/\s(De|Del|La|Las|Los|Y)(?=\s)/g, m=>m.toLowerCase());
+// Saca el nombre del texto de una cédula: con etiquetas (NOMBRES / APELLIDOS) o, en la de Panamá, las líneas de nombre antes de "Nombre usual" / "Fecha de nacimiento"
+function nombreDeCedula(texto){
+  const lineas = texto.split('\n').map(l=>l.replace(/[^A-Za-zÁÉÍÓÚÑÜáéíóúñü0-9:\s-]/g, ' ').replace(/\s+/g, ' ').trim()).filter(Boolean);
+  const soloLetras = l => l.split(' ').filter(w=>/^[A-Za-zÁÉÍÓÚÑÜáéíóúñü]{2,}$/.test(w)).join(' ');
+  const etiqueta = re => { const i = lineas.findIndex(l=>re.test(norm(l))); if(i < 0) return ''; const resto = soloLetras(lineas[i].replace(/^\S+\s*:?\s*/, '')); return resto || soloLetras(lineas[i+1] || ''); };
+  const nombres = etiqueta(/^nombres?\b(?!\s*usual)/), apellidos = etiqueta(/^apellidos?\b/);
+  if(nombres && apellidos) return tituloNombre(`${nombres} ${apellidos}`);
+  const NO = /republica|panama|tribunal|electoral|cedula|identidad|personal|registro|civil|direccion|nombre|usual|fecha|nacimiento|lugar|sexo|sangre|expedida|expira|firma|donante|venezuela|ministerio|documento/;
+  // solo palabras en MAYÚSCULAS: descarta la basura que deja el OCR en fotos ("o JOSÉ ANTONIO", "- DE LEÓN")
+  const mayus = l => l.split(' ').filter(w=>/^[A-ZÁÉÍÓÚÑÜ]{2,}$/.test(w)).join(' ');
+  const esNombre = l => !/\d/.test(l) && !NO.test(norm(l)) && mayus(l).replace(/\s/g,'').length >= 4;
+  const ancla = lineas.findIndex(l=>/nombre usual|fecha de nac|lugar de nac/.test(norm(l)));
+  const antes = (ancla > 0 ? lineas.slice(0, ancla) : lineas).filter(esNombre).map(mayus).filter(Boolean);
+  const partes = ancla > 0 ? antes.slice(-2) : antes.slice(0, 2);
+  return partes.length ? tituloNombre(partes.join(' ')) : '';
+}
+async function textoDeCedula(f){
+  let fuente = f;
+  if(f.type === 'application/pdf' || /\.pdf$/i.test(f.name)){
+    const lib = window.pdfjsLib; lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const pdf = await lib.getDocument({data: await f.arrayBuffer()}).promise, pg = await pdf.getPage(1);
+    const txt = (await pg.getTextContent()).items.map(i=>i.str + (i.hasEOL ? '\n' : ' ')).join('');
+    if(txt.replace(/\s/g,'').length > 20) return txt;   // PDF con texto: no hace falta OCR
+    const vp = pg.getViewport({ scale: 2.5 }), cv = document.createElement('canvas'); cv.width = vp.width; cv.height = vp.height;
+    await pg.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise; fuente = cv;
+  }
+  await loadScript(OCR.js);
+  const w = await Tesseract.createWorker('spa', 1, { workerPath: OCR.worker, corePath: OCR.core, langPath: OCR.lang });
+  try{ return (await w.recognize(fuente)).data.text; } finally { w.terminate(); }
+}
+wireDrop($('dropCedula'), $('fileCedula'), async files=>{
+  const f = files.find(f=>f.type.startsWith('image/') || /\.pdf$/i.test(f.name)); if(!f) return;
+  status('Leyendo la cédula… la primera vez tarda unos segundos.');
+  try{
+    const nombre = nombreDeCedula(await textoDeCedula(f));
+    if(!nombre) throw new Error('sin nombre');
+    $('fFirmaNombre').value = nombre; $('fFirmaNombre').dispatchEvent(new Event('input'));
+    status(`Nombre tomado de la cédula: ${nombre}. Revísalo por si la foto no se leyó bien.`);
+  }catch(_){ status('No se pudo leer el nombre de la cédula. Prueba con una foto más nítida y derecha, o escríbelo a mano.', true); }
+});
+
 /* ——— Init ——— */
 document.querySelectorAll('input[name="pago"]').forEach(r=>r.onchange = ()=>{ $('pagoTexto').hidden = r.value !== 'otra' || !r.checked; if(r.value === 'otra' && r.checked) $('pagoTexto').focus(); if(S.data) renderPages(); });
 ['pagoDias','pagoTexto'].forEach(id=>$(id).addEventListener('input', ()=>{ const v = id === 'pagoDias' ? 'credito' : 'otra'; document.querySelector(`input[name="pago"][value="${v}"]`).checked = true; $('pagoTexto').hidden = v !== 'otra'; clearTimeout(formTimer); formTimer = setTimeout(()=>{ if(S.data) renderPages(); }, 400); }));
 $('desglose').onchange = e=>{ S.desglose = e.target.checked; if(S.data) renderPages(); };
 let formTimer;
+['fFirmaNombre'].forEach(id=>$(id).addEventListener('input', ()=>{ clearTimeout(formTimer); formTimer = setTimeout(()=>{ if(S.data) renderPages(); }, 400); }));
 ['fCliente','fEvento','fRecinto','fFecha','context'].forEach(id=>$(id).addEventListener('input', ()=>{ clearTimeout(formTimer); formTimer = setTimeout(()=>{ if(S.data) $('go').click(); }, 500); }));
 renderExecs(); renderClauses(); paintChrome();
 
