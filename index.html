@@ -246,7 +246,7 @@ table.cal{margin-bottom:18px}
   <section class="step">
     <h2>Renders</h2>
     <p class="help">Opcional, hasta 10 imágenes. Las 3 primeras van en Solución y el resto en una página de galería. Sin renders, se arma un bosquejo referencial a partir de los equipos cotizados.</p>
-    <label class="drop" id="dropRenders"><input type="file" id="fileRenders" accept="image/*" multiple><strong>Sube imágenes</strong> o arrástralas aquí</label>
+    <label class="drop" id="dropRenders"><input type="file" id="fileRenders" accept="image/*,.heic,.heif" multiple><strong>Sube imágenes</strong> o arrástralas aquí</label>
     <div class="thumbs" id="thumbs"></div>
   </section>
 
@@ -474,12 +474,34 @@ wireDrop($('dropQuote'), $('fileQuote'), async files=>{
     document.querySelector('#dropQuote + div + details').open = true;
   }
 });
-wireDrop($('dropRenders'), $('fileRenders'), files=>{
-  files.filter(f=>f.type.startsWith('image/')).slice(0, MAX_RENDERS - S.renders.length).forEach(f=>{
-    const r = new FileReader();
-    r.onload = ()=>{ S.renders.push(r.result); renderThumbs(); if(S.data) renderPages(); };
-    r.readAsDataURL(f);
+// Abre la imagen en el navegador y la deja en JPG de hasta 2400 px: así pesa poco en el PDF y en Mis propuestas.
+// Si el navegador no la puede abrir (HEIC del iPhone en Chrome, archivo dañado) devuelve null.
+function imagenLigera(f, max = 2400){
+  return new Promise(ok=>{
+    const url = URL.createObjectURL(f), img = new Image();
+    img.onload = ()=>{
+      const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight)), cv = document.createElement('canvas');
+      cv.width = Math.round(img.naturalWidth * k); cv.height = Math.round(img.naturalHeight * k);
+      const x = cv.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, cv.width, cv.height); x.drawImage(img, 0, 0, cv.width, cv.height);
+      URL.revokeObjectURL(url); ok(cv.toDataURL('image/jpeg', 0.9));
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); ok(null); };
+    img.src = url;
   });
+}
+const esImagen = f => f.type.startsWith('image/') || /\.(jpe?g|png|webp|gif|heic|heif|avif|bmp)$/i.test(f.name);
+const avisoHeic = nombres => `No se pudo abrir ${nombres.join(', ')}. Si es una foto del iPhone (HEIC), envíatela como JPG o cámbiala en Ajustes > Cámara > Formatos > "Más compatible".`;
+wireDrop($('dropRenders'), $('fileRenders'), async files=>{
+  const imgs = files.filter(esImagen), otros = files.length - imgs.length, cupo = MAX_RENDERS - S.renders.length;
+  if(!imgs.length){ status(otros ? 'Ese archivo no es una imagen. Sube los renders en JPG o PNG.' : 'No llegó ninguna imagen.', true); return; }
+  if(cupo <= 0){ status(`Ya hay ${MAX_RENDERS} renders, que es el máximo. Quita alguno para agregar otro.`, true); return; }
+  status('Cargando imágenes…');
+  const malas = [];
+  for(const f of imgs.slice(0, cupo)){ const src = await imagenLigera(f); if(src) S.renders.push(src); else malas.push(f.name); }
+  renderThumbs(); if(S.data) renderPages();
+  const puestas = imgs.slice(0, cupo).length - malas.length, sobran = imgs.length - cupo;
+  if(malas.length) status(avisoHeic(malas), true);
+  else status(`${puestas} ${puestas === 1 ? 'imagen agregada' : 'imágenes agregadas'}.${sobran > 0 ? ` ${sobran} no entraron: el máximo es ${MAX_RENDERS}.` : ''}`, sobran > 0);
 });
 const MAX_RENDERS = 10;
 function renderThumbs(){
@@ -1632,9 +1654,11 @@ async function textoDeCedula(f){
   try{ return (await w.recognize(fuente)).data.text; } finally { w.terminate(); }
 }
 wireDrop($('dropCedula'), $('fileCedula'), async files=>{
-  const f = files.find(f=>f.type.startsWith('image/') || /\.pdf$/i.test(f.name)); if(!f) return;
+  const f = files.find(f=>esImagen(f) || /\.pdf$/i.test(f.name));
+  if(!f){ status('Adjunta la cédula como foto (JPG o PNG) o PDF.', true); return; }
   status('Leyendo la cédula… la primera vez tarda unos segundos.');
   try{
+    if(!/\.pdf$/i.test(f.name) && !(await imagenLigera(f, 400))){ status(avisoHeic([f.name]), true); return; }
     const nombre = nombreDeCedula(await textoDeCedula(f));
     if(!nombre) throw new Error('sin nombre');
     $('fFirmaNombre').value = nombre; $('fFirmaNombre').dispatchEvent(new Event('input'));
