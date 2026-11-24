@@ -1632,14 +1632,44 @@ function nombreDeCedula(texto){
   if(nombres && apellidos) return tituloNombre(`${nombres} ${apellidos}`);
   const NO = /republica|panama|tribunal|electoral|cedula|identidad|personal|registro|civil|direccion|nombre|usual|fecha|nacimiento|lugar|sexo|sangre|expedida|expira|firma|donante|venezuela|ministerio|documento/;
   // solo palabras en MAYÚSCULAS: descarta la basura que deja el OCR en fotos ("o JOSÉ ANTONIO", "- DE LEÓN")
-  const mayus = l => l.split(' ').filter(w=>/^[A-ZÁÉÍÓÚÑÜ]{2,}$/.test(w)).join(' ');
+  // si la línea viene con inicial mayúscula ("Alma Romina"), las letras sueltas en MAYÚSCULAS son ruido del holograma ("NN")
+  const mayus = l => { const ws = l.split(' '), tit = ws.some(w=>/^[A-ZÁÉÍÓÚÑÜ][a-záéíóúñü]{2,}$/.test(w));
+    return ws.filter(w=> tit ? /^[A-ZÁÉÍÓÚÑÜ][a-záéíóúñü]+$|^(de|del|la|las|los|y)$/.test(w) : /^[A-ZÁÉÍÓÚÑÜ]{2,}$/.test(w)).join(' ').replace(/^(de|del|la|las|los|y)\s+/, ''); };
   const esNombre = l => !/\d/.test(l) && !NO.test(norm(l)) && mayus(l).replace(/\s/g,'').length >= 4;
   const ancla = lineas.findIndex(l=>/nombre usual|fecha de nac|lugar de nac/.test(norm(l)));
   const antes = (ancla > 0 ? lineas.slice(0, ancla) : lineas).filter(esNombre).map(mayus).filter(Boolean);
   const partes = ancla > 0 ? antes.slice(-2) : antes.slice(0, 2);
   return partes.length ? tituloNombre(partes.join(' ')) : '';
 }
-async function textoDeCedula(f){
+// Prepara la foto para el OCR: la agranda si es pequeña, la pasa a gris con más contraste y la gira si hace falta
+async function lienzoCedula(fuente, giro){
+  const img = fuente instanceof HTMLCanvasElement ? fuente : await new Promise((ok, mal)=>{ const u = URL.createObjectURL(fuente), i = new Image(); i.onload = ()=>{ URL.revokeObjectURL(u); ok(i); }; i.onerror = mal; i.src = u; });
+  const w0 = img.naturalWidth || img.width, h0 = img.naturalHeight || img.height, k = Math.min(3000 / Math.max(w0, h0), Math.max(1, 1800 / Math.min(w0, h0)));
+  const w = Math.round(w0 * k), h = Math.round(h0 * k), lado = giro % 180 !== 0, cv = document.createElement('canvas');
+  cv.width = lado ? h : w; cv.height = lado ? w : h;
+  const x = cv.getContext('2d'); x.filter = 'grayscale(1) contrast(1.4)';
+  x.translate(cv.width/2, cv.height/2); x.rotate(giro * Math.PI / 180); x.drawImage(img, -w/2, -h/2, w, h);
+  return cv;
+}
+// Lee el nombre de la cédula: prueba derecha y, si no lo encuentra, girada (fotos tomadas de lado o al revés)
+async function leerCedula(f){
+  const fuente = await textoDeCedula(f, true);
+  if(typeof fuente === 'string') return nombreDeCedula(fuente);
+  await loadScript(OCR.js);
+  const w = await Tesseract.createWorker('spa', 1, { workerPath: OCR.worker, corePath: OCR.core, langPath: OCR.lang });
+  try{
+    // vale la lectura que más se parece a una cédula (palabras como Tribunal, Nombre usual, Fecha de nacimiento)
+    const pistas = t => (norm(t).match(/republica|panama|tribunal|electoral|nombre|usual|fecha|nacimiento|lugar|sexo|expedida|expira|cedula|identidad|apellidos|nombres|venezuela/g) || []).length;
+    let mejor = { p: 0, nombre: '' };
+    for(const giro of [0, 90, 270, 180]){
+      const t = (await w.recognize(await lienzoCedula(fuente, giro))).data.text, p = pistas(t), nombre = nombreDeCedula(t);
+      if(nombre && p > mejor.p) mejor = { p, nombre };
+      if(mejor.p >= 3) break;   // ya se leyó bien: no hace falta probar otros giros
+    }
+    return mejor.p >= 2 ? mejor.nombre : '';
+  } finally { w.terminate(); }
+}
+async function textoDeCedula(f, soloFuente){
   let fuente = f;
   if(f.type === 'application/pdf' || /\.pdf$/i.test(f.name)){
     const lib = window.pdfjsLib; lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -1649,6 +1679,7 @@ async function textoDeCedula(f){
     const vp = pg.getViewport({ scale: 2.5 }), cv = document.createElement('canvas'); cv.width = vp.width; cv.height = vp.height;
     await pg.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise; fuente = cv;
   }
+  if(soloFuente) return fuente;
   await loadScript(OCR.js);
   const w = await Tesseract.createWorker('spa', 1, { workerPath: OCR.worker, corePath: OCR.core, langPath: OCR.lang });
   try{ return (await w.recognize(fuente)).data.text; } finally { w.terminate(); }
@@ -1659,7 +1690,7 @@ wireDrop($('dropCedula'), $('fileCedula'), async files=>{
   status('Leyendo la cédula… la primera vez tarda unos segundos.');
   try{
     if(!/\.pdf$/i.test(f.name) && !(await imagenLigera(f, 400))){ status(avisoHeic([f.name]), true); return; }
-    const nombre = nombreDeCedula(await textoDeCedula(f));
+    const nombre = await leerCedula(f);
     if(!nombre) throw new Error('sin nombre');
     $('fFirmaNombre').value = nombre; $('fFirmaNombre').dispatchEvent(new Event('input'));
     status(`Nombre tomado de la cédula: ${nombre}. Revísalo por si la foto no se leyó bien.`);
