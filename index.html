@@ -129,9 +129,11 @@ textarea{width:100%; min-height:90px; border:1px solid var(--line); background:v
 .fact b{display:block; font:600 20px/1.15 var(--f-title); text-transform:uppercase}
 
 /* solution */
-.render{position:relative; background:#111; height:350px; margin-bottom:8px; overflow:hidden}
-.render img{width:100%; height:100%; object-fit:cover; display:block}
-.render.sketch img{object-fit:contain; background:#000}
+/* Las imágenes se ven completas, sin recorte: se ajustan a la caja sin object-fit (html2canvas no lo respeta) */
+.render{position:relative; height:350px; margin-bottom:8px; overflow:hidden; display:flex; align-items:center; justify-content:center}
+.render img{max-width:100%; max-height:100%; width:auto; height:auto; display:block}
+.render.sketch{background:#000}
+.render.sketch img{width:100%; height:100%; max-width:none; max-height:none; object-fit:contain}
 .render-row{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px}
 .render-row .render{height:170px; margin:0}
 .gallery{display:grid; grid-template-columns:1fr 1fr; gap:10px}
@@ -1345,7 +1347,7 @@ function pageSolution(d, c, t, n){
   } else if(S.sketch){
     media = `<div class="render sketch"><img src="${uri(S.sketch)}" alt="Bosquejo del montaje"></div><p class="rcap">Esquema referencial, vista frontal. La ubicación final se ajusta a la distribución del recinto.</p>`;
   } else {
-    media = `<div class="render" style="display:grid;place-items:center;color:#777;font-size:13px">Sube un render para esta sección</div><p class="rcap">&nbsp;</p>`;
+    media = `<div class="render" style="background:#eee;color:#777;font-size:13px">Sube un render para esta sección</div><p class="rcap">&nbsp;</p>`;
   }
   const inc = (d.incluye||[]).slice(0,6).map(i=>`<li><b>${esc(i.titulo)}${i.cortesia?'<span class="tag">Cortesía</span>':''}</b><span>${esc(i.texto)}</span></li>`).join('');
   return `<div class="page" style="--pacc:${t.bg}">${corner(t)}<div class="pad">
