@@ -181,7 +181,7 @@ table.cal td:first-child{font-weight:600; width:32%}
 ol.clauses{margin:0; padding:0; list-style:none; counter-reset:c; columns:1}
 ol.clauses li{counter-increment:c; position:relative; padding:6px 0 6px 30px; border-bottom:1px solid #e9e9e9; font-size:10.5px; line-height:1.45}
 ol.clauses li b{font-weight:600}
-ol.clauses li::before{content:counter(c,decimal-leading-zero); position:absolute; left:0; top:6px; font:600 11px/1.45 var(--f-title); color:#000}
+ol.clauses li::before{content:attr(data-n); white-space:nowrap; position:absolute; left:0; top:6px; font:600 11px/1.45 var(--f-title); color:#000}
 .sign{display:grid; grid-template-columns:1fr 1fr; gap:40px; margin:6px 0 10px; font-size:11.5px}
 .sign i{display:block; height:44px; border-bottom:1px solid #000; margin-bottom:6px}
 .sign span{color:#555}
@@ -1405,7 +1405,7 @@ function pagesConditions(d, c, t, n0){
   return chunks.map((ch,i)=>{ const start=k; k+=ch.length; return `<div class="page" style="--pacc:${t.bg}">${corner(t)}<div class="pad cond">
     ${secHead('Condiciones', i===0 ? (d.vigencia_hasta?`válida hasta el ${d.vigencia_hasta}`:'generales de servicio') : 'continuación')}
     ${i===0&&cal?`<h4>Calendario</h4><table class="cal"><tbody>${cal}</tbody></table>`:''}
-    <h4>${i===0?'Condiciones generales de servicio':'Condiciones generales de servicio (cont.)'}</h4><ol class="clauses" style="counter-reset:c ${start}">${ch.map(c=>`<li>${c.t?`<b>${esc(c.t)}.</b> `:''}${esc(c.x)}</li>`).join('')}</ol>
+    <h4>${i===0?'Condiciones generales de servicio':'Condiciones generales de servicio (cont.)'}</h4><ol class="clauses" style="counter-reset:c ${start}">${ch.map((c,j)=>`<li data-n="${String(start+j+1).padStart(2,'0')}">${c.t?`<b>${esc(c.t)}.</b> `:''}${esc(c.x)}</li>`).join('')}</ol>
   </div>${foot(n0+i,d,t)}</div>`; });
 }
 function pageClosing(d, c, t, n){
