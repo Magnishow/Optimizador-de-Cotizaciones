@@ -191,16 +191,50 @@ table.inv tr.sum.first td{border-top:2px solid #000; padding-top:12px}
 .opcard p{font-size:11.5px; line-height:1.45; margin:10px 0 0}
 .opcards.muchas{gap:8px} .opcards.muchas .opcard{padding:10px} .opcards.muchas h3{font-size:16px} .opcards.muchas .opcard b{font-size:19px} .opcards.muchas .opcard p{font-size:10px}
 table.inv.comp{font-size:11.5px}
-.analisis .resumen{display:grid; gap:10px; margin-bottom:20px}
-.analisis .resumen div{border-left:6px solid var(--pacc); background:#f2f2f2; padding:10px 14px; font-size:12px; line-height:1.5}
-.analisis .resumen b{font-weight:600}
-.analisis h3{font:700 19px/1.1 var(--f-title); text-transform:uppercase; margin:18px 0 8px; display:flex; justify-content:space-between; align-items:baseline; gap:12px; border-bottom:2px solid #000; padding-bottom:6px}
-.analisis h3 span{font:600 15px/1 var(--f-title)}
-.analisis ul{list-style:none; margin:0; padding:0; display:grid; gap:7px}
-.analisis li{padding-left:20px; position:relative; font-size:11.8px; line-height:1.5}
-.analisis li::before{content:""; position:absolute; left:0; top:6px; width:10px; height:10px; background:var(--pacc); transform:skewX(-10deg)}
-.analisis li b{font-weight:600}
-.page.apretada .analisis li{font-size:11px; line-height:1.4} .page.apretada .analisis h3{margin-top:12px} .page.apretada .analisis .resumen div{padding:7px 12px; font-size:11.2px}
+.analisis h4{font:600 15px/1 var(--f-title); text-transform:uppercase; margin:20px 0 10px}
+.analisis h5{font:600 13px/1.2 var(--f-title); text-transform:uppercase; margin:0 0 6px; display:flex; justify-content:space-between; gap:10px}
+.analisis h5 span{font-weight:700}
+.analisis .bars{display:grid; gap:8px}
+.analisis .ibar{display:grid; grid-template-columns:120px 1fr 92px 96px; align-items:center; gap:10px; font-size:12px}
+.analisis .ibar span{font-weight:600}
+.analisis .ibar div{height:22px; background:#f2f2f2}
+.analisis .ibar i{display:block; height:100%; background:var(--pacc)}
+.analisis .ibar b{font:700 14px/1 var(--f-title); text-align:right}
+.analisis .ibar em{font:500 10px/1 var(--f-title); text-transform:uppercase; font-style:normal}
+.analisis .comun{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:20px}
+.analisis .comun > div, .analisis .elige > div, .analisis .porque > div{background:#f2f2f2; padding:12px 14px; border-top:6px solid var(--pacc)}
+.analisis .comun > div + div{border-top-color:#000}
+.analisis p{margin:0; font-size:12px; line-height:1.5}
+.analisis .elige{display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px}
+.analisis .leadbox{display:flex; gap:18px; align-items:center; background:#000; color:#fff; padding:16px 20px; border-left:12px solid var(--pacc)}
+.analisis .leadbox b{font:700 34px/1 var(--f-title); white-space:nowrap}
+.analisis .leadbox p{font-size:13px; line-height:1.5; color:#fff}
+.analisis .wf{display:grid; gap:6px}
+.analisis .wfr{display:grid; grid-template-columns:130px 1fr 92px; align-items:center; gap:10px; font-size:12px}
+.analisis .wfr span{font-weight:600}
+.analisis .wfr b{font:700 13px/1 var(--f-title); text-align:right}
+.analisis .eje{display:grid; grid-template-columns:1fr 1fr; height:18px; background:#f2f2f2}
+.analisis .eje .neg{display:flex; justify-content:flex-end; border-right:2px solid #000}
+.analisis .eje i{display:block; height:100%}
+.analisis .eje .neg i, .analisis .wfnota i.neg{background:#000}
+.analisis .eje .pos i, .analisis .wfnota i.pos{background:var(--pacc)}
+.analisis .wfnota{font-size:10.5px; color:#555; margin-top:6px}
+.analisis .wfnota i{display:inline-block; width:10px; height:10px; margin:0 6px 0 14px; vertical-align:-1px}
+.analisis .wfnota i:first-child{margin-left:0}
+.analisis .sumafuera{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:20px}
+.analisis .sumafuera > div{border-top:6px solid var(--pacc); padding-top:8px}
+.analisis .sumafuera > div + div{border-top-color:#000}
+.analisis .sumafuera ul{list-style:none; margin:0; padding:0; display:grid; gap:5px}
+.analisis .sumafuera li{font-size:11.5px; line-height:1.4}
+.analisis .sumafuera li b{font-weight:600}
+.analisis .sumafuera li span{display:block; color:#555; font-size:10.5px}
+.analisis .nada{color:#555}
+.analisis .porque{display:grid; grid-template-columns:1fr; gap:12px}
+.analisis .porque p{font-size:12.5px}
+.analisis .porque p + p{margin-top:5px}
+.analisis .notas{margin-top:14px; border-left:6px solid #000; padding:4px 0 4px 14px}
+.analisis .notas p{font-size:11.5px}
+.page.apretada .analisis h4{margin:12px 0 8px} .page.apretada .analisis p{font-size:11px; line-height:1.4} .page.apretada .analisis .sumafuera li{font-size:10.5px} .page.apretada .analisis .porque > div{padding:8px 12px} .page.apretada .analisis .leadbox{padding:12px 16px}
 table.inv.comp td.r b{font-weight:700}
 table.inv.comp td.no{color:#8a8a8a; text-align:right; white-space:nowrap}
 table.inv.comp tr.tot td{background:#000; color:#fff; font:700 15px/1.2 var(--f-title); padding:10px}
@@ -1520,97 +1554,127 @@ function pageCompare(ops, t, n){
     ${secHead('Opciones', 'compara y elige la que mejor se ajusta')}
     <div class="opcards${ops.length > 3 ? ' muchas' : ''}" style="grid-template-columns:repeat(${ops.length},1fr)">${cards}</div>
     <table class="inv comp"><thead><tr><th>Rubro</th>${ops.map(o=>`<th class="r">${esc(o.nombre)}</th>`).join('')}</tr></thead><tbody>${filas}${sums}</tbody></table>
-    <p class="rcap" style="margin-top:16px">En la página de Análisis se explica qué cambia entre las opciones y por qué varía el precio. El detalle de cada una está en sus páginas de Inversión; al confirmar, marca la opción elegida en la página de firma.</p>
+    <p class="rcap" style="margin-top:16px">Al final, después de las condiciones, el Análisis explica qué cambia entre las opciones y por qué varía el precio. El detalle de cada una está en sus páginas de Inversión; al confirmar, marca la opción elegida en la página de firma.</p>
   </div>${foot(n,d0,t)}</div>`;
 }
-/* Análisis de las opciones (reglas locales, sin IA): explica por qué cambia el precio de cada opción frente a la 1
-   — qué rubros suben o bajan, qué equipos se suman o se quitan, cantidades, valores y jornadas — y da una guía para decidir. */
+/* Análisis de las opciones (reglas locales, sin IA). Va al final, después de las Condiciones.
+   1) Resumen: barras con la inversión de cada opción, qué tienen en común y "Elige esta opción si…".
+   2) Por cada opción frente a la 1, dos hojas: una frase que lo resume, de dónde sale la diferencia (barras por rubro)
+      y lo que suma y deja fuera; luego, por qué cambia cada rubro, en palabras simples. */
+const QUE_ES = [[/stream|transmis/, 'transmisión en vivo para la audiencia remota'], [/audio|sonido/, 'el sonido del evento'], [/ilumin|luz|luces/, 'la iluminación de escena y ambiente'],
+  [/video|pantalla|led/, 'las pantallas y el manejo de contenido'], [/tarima|escenario/, 'el escenario'], [/logist|transporte|montaje/, 'montaje, transporte y producción'],
+  [/silla|mobiliario|mueble/, 'el mobiliario'], [/fee|gestion/, 'la gestión del proyecto'], [/foto|camara|grabacion|registro/, 'el registro audiovisual'], [/decor|escenograf/, 'la decoración y escenografía'], [/energ|planta|generador/, 'la energía eléctrica']];
+const queEs = nombre => (QUE_ES.find(([re])=>re.test(norm(nombre))) || [])[1] || '';
 function analisisOpciones(ops){
   const cs = ops.map(o=>compute(o.d)), k = x => norm(x).replace(/s\b/g, ''), base = cs[0], b0 = ops[0].nombre;
   const pct = (a, b) => b ? Math.round(Math.abs(a) / b * 100) : 0;
   const signo = x => (x > 0 ? '+' : '−') + money(Math.abs(x));
-  const corto = (arr, max = 4) => arr.length > max ? arr.slice(0, max).join(', ') + ` y ${arr.length - max} más` : arr.join(', ');
+  const corto = (arr, max = 4) => arr.length > max ? arr.slice(0, max).join(', ') + ` y ${arr.length - max} más` : arr.join(', ').replace(/, ([^,]*)$/, ' y $1');
   const itemsDe = g => { const m = new Map(); (g?.items || []).forEach(it=>{ const key = k(it.concepto); if(key && !m.has(key)) m.set(key, it); }); return m; };
   const nomIt = it => [it.cantidad, it.concepto].filter(Boolean).join(' ');
   const nItems = c => c.groups.reduce((a,g)=>a+g.items.length, 0);
-  // por qué cambia un rubro: equipos que entran o salen, cantidades, valores unitarios y jornadas
+  const pitch = s => { const m = norm(s).match(/\bp\s?(\d+(?:[.,]\d+)?)\b/); return m ? parseFloat(m[1].replace(',', '.')) : null; };
+  const m2 = it => { const m = norm(`${it.cantidad} ${it.concepto}`).match(/(\d+(?:[.,]\d+)?)\s*m(?:2|²)/); return m ? parseFloat(m[1].replace(',', '.')) : null; };
+  const esPersonal = s => /operador|tecnico|productor|staff|stage|asistente|coordinador|ingeniero/.test(norm(s));
+  // Por qué cambia un rubro, en frases simples
   function porQue(g0, g1){
     const m0 = itemsDe(g0), m1 = itemsDe(g1), r = [];
-    const suma = [...m1.keys()].filter(x=>!m0.has(x)).map(x=>nomIt(m1.get(x)));
-    const quita = [...m0.keys()].filter(x=>!m1.has(x)).map(x=>nomIt(m0.get(x)));
-    const cant = [], valor = [], jorn = [];
+    let suma = [...m1.keys()].filter(x=>!m0.has(x)).map(x=>m1.get(x)), quita = [...m0.keys()].filter(x=>!m1.has(x)).map(x=>m0.get(x));
+    // cambio de pantalla: otra resolución (pitch) o tamaño
+    const pA = quita.find(it=>/pantalla|led/.test(norm(it.concepto)) && (pitch(it.concepto) || m2(it))), pB = suma.find(it=>/pantalla|led/.test(norm(it.concepto)) && (pitch(it.concepto) || m2(it)));
+    if(pA && pB){
+      const a = pitch(pA.concepto), b = pitch(pB.concepto), sa = m2(pA), sb = m2(pB);
+      let x = `Cambia la pantalla: ${nomIt(pA)} → ${nomIt(pB)}.`;
+      if(a && b && a !== b) x += b > a ? ` El píxel más grande (P${b}) se ve bien a mayor distancia y cuesta menos; el P${a} da más definición de cerca.` : ` El píxel más fino (P${b}) da más definición, sobre todo para público cerca de la pantalla; por eso cuesta más.`;
+      if(sa && sb && Math.abs(sa - sb) >= 0.5) x += ` La superficie ${sb > sa ? 'crece' : 'baja'} de ${sa} a ${sb} m².`;
+      r.push(x); suma = suma.filter(it=>it !== pB); quita = quita.filter(it=>it !== pA);
+    }
+    if(suma.length) r.push(`Suma ${corto(suma.map(nomIt), 3)}.`);
+    if(quita.length) r.push(`Ya no lleva ${corto(quita.map(nomIt), 3)}.`);
     [...m1.keys()].filter(x=>m0.has(x)).forEach(x=>{
       const a = m0.get(x), b = m1.get(x);
-      if(String(a.cantidad||'') !== String(b.cantidad||'')) cant.push(`${b.concepto} pasa de ${a.cantidad||'—'} a ${b.cantidad||'—'}`);
-      else if(a.factor != null && b.factor != null && Math.abs(a.factor - b.factor) > 0.001) jorn.push(`${b.concepto} se cobra ${fmtFactor(b.factor)} ${b.factor == 1 ? 'vez' : 'veces'} en lugar de ${fmtFactor(a.factor)}`);
-      else if(a.unit != null && b.unit != null && Math.abs(a.unit - b.unit) >= 0.01) valor.push(`${b.concepto} a ${money(b.unit)} en lugar de ${money(a.unit)}`);
+      if(String(a.cantidad||'') !== String(b.cantidad||'')){
+        const na = parseFloat(a.cantidad), nb = parseFloat(b.cantidad);
+        r.push(`${b.concepto}: ${a.cantidad||'—'} → ${b.cantidad||'—'}${esPersonal(b.concepto) && na && nb ? (nb < na ? ', con menos personal en sitio' : ', con más personal en sitio') : ''}.`);
+      } else if(a.factor != null && b.factor != null && Math.abs(a.factor - b.factor) > 0.001)
+        r.push(`${b.concepto} se cobra ${fmtFactor(b.factor)} ${b.factor == 1 ? 'vez' : 'veces'} en lugar de ${fmtFactor(a.factor)}${b.factor > a.factor ? ' (más jornadas de trabajo)' : ' (menos jornadas)'}.`);
+      else if(a.unit != null && b.unit != null && Math.abs(a.unit - b.unit) >= 0.01)
+        r.push(`${b.concepto}: mismo servicio, a ${money(b.unit)} en lugar de ${money(a.unit)}.`);
     });
-    if(suma.length) r.push(`suma ${corto(suma, 3)}`);
-    if(quita.length) r.push(`no lleva ${corto(quita, 3)}`);
-    if(cant.length) r.push(corto(cant, 3));
-    if(jorn.length) r.push(corto(jorn, 2));
-    if(valor.length) r.push(corto(valor, 2));
-    return r;
+    return r.slice(0, 4);
   }
+  const claves = []; cs.forEach(c=>c.groups.forEach(g=>{ if(!claves.some(x=>x.k === k(g.nombre))) claves.push({ k:k(g.nombre), nombre:g.nombre }); }));
   const bloques = ops.slice(1).map((o, j)=>{
-    const i = j + 1, c = cs[i], dif = c.total - base.total, li = [];
-    li.push(Math.abs(dif) < 0.01 ? `Tiene la <b>misma inversión</b> que ${esc(b0)}: cambia el contenido, no el valor.`
-      : `Cuesta <b>${money(Math.abs(dif))} ${dif > 0 ? 'más' : 'menos'}</b> que ${esc(b0)} (${pct(dif, base.total)} % ${dif > 0 ? 'por encima' : 'por debajo'}).${o.d.itbms_aplica && Math.abs(c.itbms - base.itbms) >= 0.01 ? ` Antes de ${esc(o.d.impuesto_nombre || 'ITBMS')}, la diferencia es de ${money(Math.abs((c.total - c.itbms) - (base.total - base.itbms)))}.` : ''}`);
-    // rubros que más mueven la diferencia
-    const claves = []; [base, c].forEach(x=>x.groups.forEach(g=>{ if(!claves.includes(k(g.nombre))) claves.push(k(g.nombre)); }));
-    const movs = claves.map(key=>{ const g0 = base.groups.find(g=>k(g.nombre) === key), g1 = c.groups.find(g=>k(g.nombre) === key);
-      return { g0, g1, nombre: (g1 || g0).nombre, d: (g1?.subtotal || 0) - (g0?.subtotal || 0) }; });
-    const nuevos = movs.filter(m=>!m.g0), fuera = movs.filter(m=>!m.g1);
-    if(nuevos.length) li.push(`<b>Suma ${esc(corto(nuevos.map(m=>m.nombre)))}</b> (${money(nuevos.reduce((a,m)=>a+m.d, 0))}), que ${esc(b0)} no incluye${nuevos.length === 1 && nuevos[0].g1.items.length ? `: ${esc(corto(nuevos[0].g1.items.map(nomIt), 3))}` : ''}.`);
-    if(fuera.length) li.push(`<b>No incluye ${esc(corto(fuera.map(m=>m.nombre)))}</b>, que en ${esc(b0)} ${fuera.length === 1 ? 'vale' : 'suman'} ${money(-fuera.reduce((a,m)=>a+m.d, 0))}.`);
-    const cambian = movs.filter(m=>m.g0 && m.g1 && Math.abs(m.d) >= 0.01).sort((a,b)=>Math.abs(b.d) - Math.abs(a.d));
-    cambian.slice(0, 3).forEach(m=>{ const r = porQue(m.g0, m.g1);
-      li.push(`<b>${esc(m.nombre)} ${signo(m.d)}</b>${r.length ? `: ${esc(r.join('; '))}` : ''}.`); });
-    const sinCambio = movs.filter(m=>m.g0 && m.g1 && Math.abs(m.d) < 0.01).map(m=>m.nombre);
-    // rubros con el mismo monto pero distinto contenido
-    movs.filter(m=>m.g0 && m.g1 && Math.abs(m.d) < 0.01).forEach(m=>{ const r = porQue(m.g0, m.g1); if(r.length && li.length < 6) li.push(`<b>${esc(m.nombre)}</b>, mismo monto: ${esc(r.join('; '))}.`); });
-    // qué rubro explica la mayor parte de la diferencia
-    const mueven = movs.filter(m=>Math.abs(m.d) >= 0.01).sort((a,b)=>Math.abs(b.d) - Math.abs(a.d));
-    const subDif = (c.subtotal - c.descuento) - (base.subtotal - base.descuento);
-    if(mueven.length > 1 && Math.abs(subDif) >= 0.01){
-      const contra = mueven.filter(m=>Math.sign(m.d) !== Math.sign(subDif)), top = mueven[0];
-      if(!contra.length) li.push(`${esc(top.nombre)} explica el ${pct(top.d, Math.abs(subDif))} % de la diferencia.`);
-      else { const aFavor = mueven.filter(m=>Math.sign(m.d) === Math.sign(subDif)), opuestos = Math.sign(top.d) === Math.sign(subDif) ? contra : aFavor;
-        li.push(`<b>En balance:</b> la mayor variación está en ${esc(top.nombre)} (${signo(top.d)}); ${esc(corto(opuestos.map(m=>m.nombre), 3))} ${opuestos.length === 1 ? 'va' : 'van'} en sentido contrario (${signo(opuestos.reduce((a,m)=>a+m.d, 0))}).`); }
-    }
-    if(Math.abs(c.descuento - base.descuento) >= 0.01) li.push(`Descuento: ${money(c.descuento)} frente a ${money(base.descuento)} en ${esc(b0)}.`);
-    if(sinCambio.length && li.length < 7) li.push(`Igual en ambas: ${esc(corto(sinCambio))}.`);
-    return { nombre: o.nombre, total: c.total, dif, li };
+    const c = cs[j+1], dif = c.total - base.total;
+    const movs = claves.map(x=>{ const g0 = base.groups.find(g=>k(g.nombre) === x.k), g1 = c.groups.find(g=>k(g.nombre) === x.k);
+      return { g0, g1, nombre: (g1 || g0 || x).nombre, d: (g1?.subtotal || 0) - (g0?.subtotal || 0) }; }).filter(m=>m.g0 || m.g1);
+    const nuevos = movs.filter(m=>!m.g0), fuera = movs.filter(m=>!m.g1), cambian = movs.filter(m=>m.g0 && m.g1);
+    const varian = movs.filter(m=>Math.abs(m.d) >= 0.01).sort((a,b)=>Math.abs(b.d) - Math.abs(a.d));
+    // frase que lo resume
+    const claves3 = varian.slice(0, 3).map(m=>!m.g0 ? `suma ${m.nombre.toLowerCase()}` : !m.g1 ? `no incluye ${m.nombre.toLowerCase()}` : `${m.nombre.toLowerCase()} ${m.d > 0 ? 'sube' : 'baja'} ${money(Math.abs(m.d))}`);
+    const lead = (Math.abs(dif) < 0.01 ? `${o.nombre} tiene la misma inversión que ${b0}.` : `${o.nombre} cuesta ${money(Math.abs(dif))} ${dif > 0 ? 'más' : 'menos'} que ${b0} (${dif > 0 ? '+' : '−'}${pct(dif, base.total)} %).`)
+      + (claves3.length ? ` Lo principal: ${corto(claves3, 3)}.` : ' Cambia el contenido de los rubros, no su valor.');
+    // lo que suma / lo que deja fuera (rubros completos y equipos dentro de rubros comunes)
+    const sumaL = nuevos.map(m=>({ t: m.nombre, x: [queEs(m.nombre), money(m.d)].filter(Boolean).join(' · ') }));
+    const fueraL = fuera.map(m=>({ t: m.nombre, x: [queEs(m.nombre), money(-m.d)].filter(Boolean).join(' · ') }));
+    cambian.forEach(m=>{ const a = itemsDe(m.g0), b = itemsDe(m.g1);
+      [...b.keys()].filter(x=>!a.has(x)).forEach(x=>sumaL.push({ t: nomIt(b.get(x)), x: m.nombre }));
+      [...a.keys()].filter(x=>!b.has(x)).forEach(x=>fueraL.push({ t: nomIt(a.get(x)), x: m.nombre })); });
+    const porque = cambian.filter(m=>Math.abs(m.d) >= 0.01).sort((a,b)=>Math.abs(b.d) - Math.abs(a.d)).slice(0, 4).map(m=>({ nombre: m.nombre, d: m.d, textos: porQue(m.g0, m.g1) }));
+    cambian.filter(m=>Math.abs(m.d) < 0.01).forEach(m=>{ const t = porQue(m.g0, m.g1); if(t.length && porque.length < 5) porque.push({ nombre: m.nombre, d: 0, textos: t }); });
+    const notas = [];
+    if(o.d.itbms_aplica && Math.abs(c.itbms - base.itbms) >= 0.01) notas.push(`Sin ${o.d.impuesto_nombre || 'ITBMS'}, la diferencia es de ${money(Math.abs((c.total - c.itbms) - (base.total - base.itbms)))}.`);
+    if(Math.abs(c.descuento - base.descuento) >= 0.01) notas.push(`Descuento: ${money(c.descuento)} frente a ${money(base.descuento)} en ${b0}.`);
+    const contra = varian.length > 1 && varian.some(m=>Math.sign(m.d) !== Math.sign(dif)) && Math.abs(dif) >= 0.01;
+    if(contra){ const fav = varian.filter(m=>Math.sign(m.d) === Math.sign(dif)), opu = varian.filter(m=>Math.sign(m.d) !== Math.sign(dif));
+      notas.push(`En balance, ${corto(fav.map(m=>m.nombre.toLowerCase()), 3)} ${dif > 0 ? 'suben' : 'bajan'} ${money(Math.abs(fav.reduce((a,m)=>a+m.d,0)))} y ${corto(opu.map(m=>m.nombre.toLowerCase()), 3)} lo compensa${opu.length > 1 ? 'n' : ''} en parte (${signo(opu.reduce((a,m)=>a+m.d,0))}).`); }
+    return { nombre: o.nombre, total: c.total, dif, lead, movs: varian, sumaL, fueraL, porque, notas };
   });
-  // resumen general y guía para decidir
-  const orden = ops.map((o,i)=>({ o, c: cs[i], n: nItems(cs[i]), g: cs[i].groups.length })).sort((a,b)=>a.c.total - b.c.total);
-  const barata = orden[0], cara = orden[orden.length - 1], completa = [...orden].sort((a,b)=>b.g - a.g || b.n - a.n)[0];
+  // resumen y "Elige esta opción si…"
+  const orden = ops.map((o,i)=>({ o, i, c: cs[i], n: nItems(cs[i]), g: cs[i].groups.length }));
+  const barata = [...orden].sort((a,b)=>a.c.total - b.c.total)[0], cara = [...orden].sort((a,b)=>b.c.total - a.c.total)[0];
+  const completa = [...orden].sort((a,b)=>b.g - a.g || b.n - a.n)[0];
   const comunes = base.groups.filter(g=>cs.every(c=>c.groups.some(x=>k(x.nombre) === k(g.nombre)))).map(g=>g.nombre);
-  const distintos = []; cs.forEach(c=>c.groups.forEach(g=>{ if(!comunes.some(x=>k(x) === k(g.nombre)) && !distintos.some(x=>k(x) === k(g.nombre))) distintos.push(g.nombre); }));
-  const res = [];
-  res.push(Math.abs(cara.c.total - barata.c.total) < 0.01 ? `Todas las opciones tienen la misma inversión: ${money(barata.c.total)}.`
-    : `<b>Rango de inversión:</b> de ${money(barata.c.total)} (${esc(barata.o.nombre)}) a ${money(cara.c.total)} (${esc(cara.o.nombre)}), una diferencia de ${money(cara.c.total - barata.c.total)}: ${cara.c.total >= 2 * barata.c.total ? `la de mayor inversión equivale a ${(Math.round(cara.c.total / barata.c.total * 10) / 10).toString().replace('.', ',')} veces la más económica` : `la de mayor inversión está ${pct(cara.c.total - barata.c.total, barata.c.total)} % por encima de la más económica`}.`);
-  if(comunes.length) res.push(`<b>Base común:</b> todas incluyen ${esc(corto(comunes, 6))}.${distintos.length ? ` Lo que las distingue: ${esc(corto(distintos, 6))}.` : ' Cambian las cantidades y los equipos dentro de cada rubro.'}`);
-  const guia = [];
-  if(barata !== cara) guia.push(`si la prioridad es el presupuesto, ${esc(barata.o.nombre)} cubre ${esc(corto(barata.c.groups.map(g=>g.nombre), 4)).toLowerCase()} con la menor inversión`);
-  if(completa !== barata) { const extra = completa.c.groups.filter(g=>!barata.c.groups.some(x=>k(x.nombre) === k(g.nombre))).map(g=>g.nombre);
-    guia.push(`si se busca más alcance, ${esc(completa.o.nombre)} ${extra.length ? `suma ${esc(corto(extra)).toLowerCase()}` : `trae ${completa.n} ítems frente a ${barata.n}`} por ${money(completa.c.total - barata.c.total)} más`); }
-  if(completa === barata && cara !== barata){ const solo = cara.c.groups.filter(g=>!barata.c.groups.some(x=>k(x.nombre) === k(g.nombre))).map(g=>g.nombre);
-    if(solo.length) guia.push(`si se necesita ${esc(corto(solo)).toLowerCase()}, ${esc(cara.o.nombre)} ${solo.length === 1 ? 'lo incluye' : 'los incluye'} por ${money(cara.c.total - barata.c.total)} más`); }
-  if(guia.length) res.push(`<b>Para decidir:</b> ${cap(guia.join('; '))}.`);
-  return { res, bloques };
+  const distintos = claves.filter(x=>!comunes.some(c=>k(c) === x.k)).map(x=>x.nombre);
+  const eligeSi = orden.map(x=>{
+    const r = [];
+    if(x === barata && barata.c.total < cara.c.total) r.push(`la prioridad es el presupuesto: es la de menor inversión`);
+    const unicos = x.c.groups.filter(g=>cs.every((c,i)=>i === x.i || !c.groups.some(y=>k(y.nombre) === k(g.nombre)))).map(g=>g.nombre.toLowerCase());
+    if(unicos.length) r.push(`necesitas ${corto(unicos, 3)}: solo esta opción ${unicos.length === 1 ? 'lo incluye' : 'los incluye'}`);
+    if(x === completa && x !== barata && ops.length > 1) r.push(`buscas el mayor alcance: ${x.g} rubros y ${x.n} ítems`);
+    if(!r.length){ const its = [...new Map(x.c.groups.flatMap(g=>g.items).map(it=>[k(it.concepto), it])).entries()].filter(([key])=>cs.every((c,i)=>i === x.i || !c.groups.some(g=>g.items.some(it=>k(it.concepto) === key)))).map(([,it])=>nomIt(it));
+      r.push(its.length ? `prefieres ${corto(its, 2)}` : 'buscas un punto medio entre alcance e inversión'); }
+    return { nombre: x.o.nombre, total: x.c.total, texto: r.join(', o si ') };
+  });
+  return { barras: orden.map(x=>({ nombre: x.o.nombre, total: x.c.total, menor: x === barata && barata.c.total < cara.c.total })), max: cara.c.total, comunes, distintos, eligeSi, bloques, b0 };
 }
 function pagesAnalisis(ops, t, n0){
-  const { res, bloques } = analisisOpciones(ops), d0 = ops[0].d;
-  const html = bloques.map(b=>({ h: `<h3>${esc(b.nombre)} frente a ${esc(ops[0].nombre)}<span>${money(b.total)}</span></h3><ul>${b.li.map(x=>`<li>${x}</li>`).join('')}</ul>`, peso: 60 + b.li.reduce((a,x)=>a + 22 * Math.ceil(x.replace(/<[^>]+>/g,'').length / 105), 0) }));
-  const pages = []; let cur = [], room = 780 - 60 - res.reduce((a,x)=>a + 22 * Math.ceil(x.replace(/<[^>]+>/g,'').length / 105) + 26, 0);
-  html.forEach(b=>{ if(cur.length && b.peso > room){ pages.push(cur); cur = []; room = 780; } cur.push(b.h); room -= b.peso; });
-  pages.push(cur);
-  return pages.map((p,i)=>`<div class="page" style="--pacc:${t.bg}">${corner(t)}<div class="pad analisis">
-    ${secHead('Análisis', i === 0 ? 'por qué cambia cada opción' : 'continuación')}
-    ${i === 0 ? `<div class="resumen">${res.map(x=>`<div>${x}</div>`).join('')}</div>` : ''}
-    ${p.join('')}
-  </div>${foot(n0+i, d0, t)}</div>`);
+  const A = analisisOpciones(ops), d0 = ops[0].d, pages = [];
+  const page = (sub, body) => `<div class="page" style="--pacc:${t.bg}">${corner(t)}<div class="pad analisis">${secHead('Análisis', sub)}${body}</div>${foot(n0 + pages.length, d0, t)}</div>`;
+  // 1) resumen
+  pages.push(page('cómo leer las opciones', `
+    <p class="lead" style="margin-bottom:18px">Estas páginas explican en palabras simples en qué se diferencian las opciones y por qué cambia el precio, para que elegir sea fácil.</p>
+    <h4>Inversión de cada opción</h4>
+    <div class="bars">${A.barras.map(b=>`<div class="ibar"><span>${esc(b.nombre)}</span><div><i style="width:${Math.max(2, b.total / A.max * 100)}%"></i></div><b>${money(b.total)}</b>${b.menor ? '<em>Menor inversión</em>' : '<em></em>'}</div>`).join('')}</div>
+    ${A.comunes.length || A.distintos.length ? `<div class="comun">${A.comunes.length ? `<div><h5>Todas incluyen</h5><p>${esc(A.comunes.join(' · '))}</p></div>` : ''}${A.distintos.length ? `<div><h5>Cambia entre opciones</h5><p>${esc(A.distintos.join(' · '))}</p></div>` : ''}</div>` : ''}
+    <h4>¿Cuál elegir?</h4>
+    <div class="elige">${A.eligeSi.map(e=>`<div><h5>${esc(e.nombre)} <span>${money(e.total)}</span></h5><p>Elige esta opción si ${esc(e.texto)}.</p></div>`).join('')}</div>`));
+  // 2) una página por opción frente a la 1
+  A.bloques.forEach(b=>{
+    const maxD = Math.max(1, ...b.movs.map(m=>Math.abs(m.d)));
+    const lista = (arr, vacio) => arr.length ? `<ul>${arr.slice(0, 7).map(x=>`<li><b>${esc(x.t)}</b>${x.x ? `<span>${esc(x.x)}</span>` : ''}</li>`).join('')}${arr.length > 7 ? `<li><span>y ${arr.length - 7} más</span></li>` : ''}</ul>` : `<p class="nada">${vacio}</p>`;
+    pages.push(page(`${b.nombre} frente a ${A.b0}`, `
+      <div class="leadbox"><b>${b.dif > 0 ? '+' : b.dif < 0 ? '−' : ''}${money(Math.abs(b.dif))}</b><p>${esc(b.lead)}</p></div>
+      ${b.movs.length ? `<h4>De dónde sale la diferencia</h4>
+      <div class="wf">${b.movs.slice(0, 8).map(m=>`<div class="wfr"><span>${esc(m.nombre)}</span><div class="eje"><div class="neg">${m.d < 0 ? `<i style="width:${Math.abs(m.d) / maxD * 100}%"></i>` : ''}</div><div class="pos">${m.d > 0 ? `<i style="width:${m.d / maxD * 100}%"></i>` : ''}</div></div><b>${m.d > 0 ? '+' : '−'}${money(Math.abs(m.d))}</b></div>`).join('')}</div>
+      <p class="wfnota"><i class="pos"></i>Suma frente a ${esc(A.b0)} <i class="neg"></i>Resta frente a ${esc(A.b0)}</p>` : ''}
+      <div class="sumafuera"><div><h5>Lo que suma</h5>${lista(b.sumaL, `No suma nada frente a ${esc(A.b0)}.`)}</div><div><h5>Lo que deja fuera</h5>${lista(b.fueraL, `Incluye todo lo de ${esc(A.b0)}.`)}</div></div>`));
+    // segunda hoja: por qué cambia cada rubro, con espacio para leerlo con calma
+    if(b.porque.length || b.notas.length) pages.push(page(`${b.nombre} · por qué cambia el precio`, `
+      ${b.porque.length ? `<div class="porque">${b.porque.map(p=>`<div><h5>${esc(p.nombre)} <span>${p.d ? (p.d > 0 ? '+' : '−') + money(Math.abs(p.d)) : 'mismo monto'}</span></h5>${p.textos.length ? p.textos.map(x=>`<p>${esc(x)}</p>`).join('') : `<p>Cambia el valor del rubro.</p>`}</div>`).join('')}</div>` : ''}
+      ${b.notas.length ? `<h4>En resumen</h4><div class="notas">${b.notas.map(x=>`<p>${esc(x)}</p>`).join('')}</div>` : ''}`));
+  });
+  return pages;
 }
 // Forma de pago elegida en el formulario (por defecto, 100 % por adelantado)
 function formaPago(total){
@@ -1679,12 +1743,13 @@ function renderPages(){
   const ops = opciones(), multi = ops.length > 1;
   const gal = pagesGallery(d, t, 3, S.renders.slice(1), multi ? ops[0].nombre : ''); html.push(...gal);
   let n = 3 + gal.length;
-  if(multi){ html.push(pageCompare(ops, t, n)); n++; const an = pagesAnalisis(ops, t, n); html.push(...an); n += an.length; }
+  if(multi){ html.push(pageCompare(ops, t, n)); n++; }
   ops.forEach((o,i)=>{
     if(i > 0){ const g = pagesGallery(o.d, t, n, rendersDe(i), o.nombre); html.push(...g); n += g.length; }   // renders propios de cada versión, antes de su inversión
     const inv = multi ? pagesInvestment(o.d, compute(o.d), t, n, { etiqueta:o.nombre, beneficios: i === ops.length-1 }) : pagesInvestment(d,c,t,n); html.push(...inv); n += inv.length;
   });
   const cond = pagesConditions(d,c,t,n); html.push(...cond); n += cond.length;
+  if(multi){ const an = pagesAnalisis(ops, t, n); html.push(...an); n += an.length; }   // el análisis va al final, después de las condiciones
   html.push(pageClosing(d,c,t,n));
   $('pages').innerHTML = html.map(h=>`<div class="pagewrap">${h}</div>`).join('');
   $('pages').querySelectorAll('.page').forEach(p=>{
