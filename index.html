@@ -1448,7 +1448,7 @@ function pageCover(d, c, t){
     ${foot(1,d,t)}
   </div>`;
 }
-function pageSolution(d, c, t, n){
+function pageSolution(d, c, t, n, etiqueta = ''){
   let media = '';
   if(S.renders.length){
     media = `<div class="render" style="height:${Math.round(Math.min(ANCHO_PAG / ratioDe(S.renders[0]), 480))}px"><img src="${S.renders[0]}" alt="Render del montaje"></div>`;
@@ -1460,12 +1460,21 @@ function pageSolution(d, c, t, n){
   }
   const inc = (d.incluye||[]).slice(0,6).map(i=>`<li><b>${esc(i.titulo)}${i.cortesia?'<span class="tag">Cortesía</span>':''}</b><span>${esc(i.texto)}</span></li>`).join('');
   return `<div class="page" style="--pacc:${t.bg}">${corner(t)}<div class="pad">
-    ${secHead('Solución', d.solucion_subtitulo)}
+    ${secHead('Solución', etiqueta ? `${etiqueta} · ${d.solucion_subtitulo||''}` : d.solucion_subtitulo)}
     <p class="lead">${esc(d.solucion_texto||'')}</p>
     ${media}
     <ul class="incl">${inc}</ul>
     ${d.ajuste_alcance?`<div class="box"><b>Consideraciones:</b> ${esc(d.ajuste_alcance)}</div>`:''}
   </div>${foot(n,d,t)}</div>`;
+}
+// Bosquejo de una versión sin renders: el esquema frontal con su equipo y lo que incluye
+function pageSketchOp(o, sk, t, n){
+  const inc = (o.d.incluye||[]).slice(0,6).map(i=>`<li><b>${esc(i.titulo)}${i.cortesia?'<span class="tag">Cortesía</span>':''}</b><span>${esc(i.texto)}</span></li>`).join('');
+  return `<div class="page" style="--pacc:${t.bg}">${corner(t)}<div class="pad">
+    ${secHead('Solución', `${o.nombre} · bosquejo del montaje`)}
+    <div class="render sketch"><img src="${uri(sk)}" alt="Bosquejo del montaje"></div><p class="rcap">Esquema referencial, vista frontal. La ubicación final se ajusta a la distribución del recinto.</p>
+    <ul class="incl">${inc}</ul>
+  </div>${foot(n,o.d,t)}</div>`;
 }
 /* Renders grandes: el primero va en Solución a todo el ancho; los demás, en páginas de Galería,
    también a todo el ancho y con su proporción. Caben los que se puedan por hoja y, si no, se usa otra hoja. */
@@ -1741,13 +1750,17 @@ function renderPages(){
   const t = theme(), c = compute(d);
   if(!S.renders.length && d._raw) S.sketch = sketchSvg(d, t);
   const html = [pageCover(d,c,t)];
-  html.push(pageSolution(d,c,t,2));
   const ops = opciones(), multi = ops.length > 1;
+  html.push(pageSolution(d,c,t,2, multi ? ops[0].nombre : ''));
   const gal = pagesGallery(d, t, 3, S.renders.slice(1), multi ? ops[0].nombre : ''); html.push(...gal);
   let n = 3 + gal.length;
   if(multi){ html.push(pageCompare(ops, t, n)); n++; }
   ops.forEach((o,i)=>{
-    if(i > 0){ const g = pagesGallery(o.d, t, n, rendersDe(i), o.nombre); html.push(...g); n += g.length; }   // renders propios de cada versión, antes de su inversión
+    if(i > 0){
+      // renders propios de cada versión, antes de su inversión; si no tiene, su propio bosquejo
+      if(rendersDe(i).length){ const g = pagesGallery(o.d, t, n, rendersDe(i), o.nombre); html.push(...g); n += g.length; }
+      else { const sk = o.d._raw && sketchSvg(o.d, t); if(sk){ html.push(pageSketchOp(o, sk, t, n)); n++; } }
+    }
     const inv = multi ? pagesInvestment(o.d, compute(o.d), t, n, { etiqueta:o.nombre, beneficios: i === ops.length-1 }) : pagesInvestment(d,c,t,n); html.push(...inv); n += inv.length;
   });
   const cond = pagesConditions(d,c,t,n); html.push(...cond); n += cond.length;
