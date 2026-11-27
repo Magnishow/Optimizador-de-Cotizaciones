@@ -71,6 +71,10 @@ body::before{content:""; position:fixed; inset:0 0 auto; height:env(safe-area-in
 .filechip button{border:0; background:none; cursor:pointer; text-decoration:underline; font-size:13px}
 details.paste{margin-top:8px; font-size:13px} details.paste summary{cursor:pointer; color:var(--muted)}
 textarea{width:100%; min-height:90px; border:1px solid var(--line); background:var(--surface); padding:10px; resize:vertical; font-size:13.5px}
+.rtabs{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px}
+.rtabs:empty{display:none}
+.rtabs button{border:1px solid var(--line); background:var(--surface); color:var(--ink); padding:6px 10px; font-size:12.5px; cursor:pointer}
+.rtabs button[aria-pressed="true"]{background:var(--ink); color:var(--surface); border-color:var(--ink); font-weight:600}
 .thumbs{display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:8px}
 .thumbs figure{margin:0; position:relative; aspect-ratio:16/10; background:var(--panel) center/cover no-repeat}
 .thumbs button{position:absolute; top:4px; right:4px; border:0; background:#000; color:#fff; font-size:12px; padding:2px 7px; cursor:pointer}
@@ -185,14 +189,22 @@ table.inv tr.sum.first td{border-top:2px solid #000; padding-top:12px}
 .opcard b{display:block; font:700 30px/1 var(--f-title)}
 .opcard small{display:block; font-size:11px; color:#555; margin-top:4px}
 .opcard p{font-size:11.5px; line-height:1.45; margin:10px 0 0}
+.opcards.muchas{gap:8px} .opcards.muchas .opcard{padding:10px} .opcards.muchas h3{font-size:16px} .opcards.muchas .opcard b{font-size:19px} .opcards.muchas .opcard p{font-size:10px}
+table.inv.comp{font-size:11.5px}
+.analisis .resumen{display:grid; gap:10px; margin-bottom:20px}
+.analisis .resumen div{border-left:6px solid var(--pacc); background:#f2f2f2; padding:10px 14px; font-size:12px; line-height:1.5}
+.analisis .resumen b{font-weight:600}
+.analisis h3{font:700 19px/1.1 var(--f-title); text-transform:uppercase; margin:18px 0 8px; display:flex; justify-content:space-between; align-items:baseline; gap:12px; border-bottom:2px solid #000; padding-bottom:6px}
+.analisis h3 span{font:600 15px/1 var(--f-title)}
+.analisis ul{list-style:none; margin:0; padding:0; display:grid; gap:7px}
+.analisis li{padding-left:20px; position:relative; font-size:11.8px; line-height:1.5}
+.analisis li::before{content:""; position:absolute; left:0; top:6px; width:10px; height:10px; background:var(--pacc); transform:skewX(-10deg)}
+.analisis li b{font-weight:600}
+.page.apretada .analisis li{font-size:11px; line-height:1.4} .page.apretada .analisis h3{margin-top:12px} .page.apretada .analisis .resumen div{padding:7px 12px; font-size:11.2px}
 table.inv.comp td.r b{font-weight:700}
 table.inv.comp td.no{color:#8a8a8a; text-align:right; white-space:nowrap}
 table.inv.comp tr.tot td{background:#000; color:#fff; font:700 15px/1.2 var(--f-title); padding:10px}
-.difs{list-style:none; margin:0; padding:0; display:grid; gap:10px}
-.difs li{padding-left:20px; position:relative; font-size:11.5px; line-height:1.45}
-.difs li::before{content:""; position:absolute; left:0; top:5px; width:10px; height:10px; background:var(--pacc); transform:skewX(-10deg)}
-.difs b{font-weight:600}
-.page.apretada .opcard{padding:10px 14px} .page.apretada .opcard p{margin-top:6px} .page.apretada .difs{gap:6px}
+.page.apretada .opcard{padding:10px 14px} .page.apretada .opcard p{margin-top:6px}
 .eleccion{display:flex; flex-wrap:wrap; align-items:center; gap:10px 26px; font-size:12.5px; margin:4px 0 14px}
 .eleccion i{display:inline-block; width:14px; height:14px; border:1.5px solid #000; margin-right:8px; vertical-align:-2px}
 
@@ -270,6 +282,7 @@ table.cal{margin-bottom:18px}
   <section class="step">
     <h2>Renders</h2>
     <p class="help">Opcional, hasta 10 imágenes. La primera va en Solución a todo el ancho y el resto en páginas de galería, grandes y completas. Sin renders, se arma un bosquejo referencial a partir de los equipos cotizados.</p>
+    <div class="rtabs" id="rendOps"></div>
     <label class="drop" id="dropRenders"><input type="file" id="fileRenders" accept="image/*,.heic,.heif" multiple><strong>Sube imágenes</strong> o arrástralas aquí</label>
     <div class="thumbs" id="thumbs"></div>
   </section>
@@ -396,7 +409,7 @@ const svgWord = (m,s) => svgDoc(LOGO.word.vb, paths(LOGO.word.magni, m)+paths(LO
 const uri = svg => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
 
 /* ——— State ——— */
-const S = { exec:'Diego', quoteText:'', quoteName:'', versiones:[], titulo1:'Opción 1', opData:[], renders:[], clauses:new Set(DEFAULT_CLAUSES.map((_,i)=>i)), data:null, sketch:null, busy:false };
+const S = { exec:'Diego', quoteText:'', quoteName:'', versiones:[], titulo1:'Opción 1', opData:[], rendOp:0, renders:[], clauses:new Set(DEFAULT_CLAUSES.map((_,i)=>i)), data:null, sketch:null, busy:false };
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const money = n => '$' + (Number(n)||0).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2});
@@ -518,28 +531,30 @@ function imagenLigera(f, max = 2400){
 const esImagen = f => f.type.startsWith('image/') || /\.(jpe?g|png|webp|gif|heic|heif|avif|bmp)$/i.test(f.name);
 const avisoHeic = nombres => `No se pudo abrir ${nombres.join(', ')}. Si es una foto del iPhone (HEIC), envíatela como JPG o cámbiala en Ajustes > Cámara > Formatos > "Más compatible".`;
 wireDrop($('dropRenders'), $('fileRenders'), async files=>{
-  const imgs = files.filter(esImagen), otros = files.length - imgs.length, cupo = MAX_RENDERS - S.renders.length;
+  const lista = rendersDe(S.rendOp), imgs = files.filter(esImagen), otros = files.length - imgs.length, cupo = MAX_RENDERS - lista.length;
   if(!imgs.length){ status(otros ? 'Ese archivo no es una imagen. Sube los renders en JPG o PNG.' : 'No llegó ninguna imagen.', true); return; }
   if(cupo <= 0){ status(`Ya hay ${MAX_RENDERS} renders, que es el máximo. Quita alguno para agregar otro.`, true); return; }
   status('Cargando imágenes…');
   const malas = [];
-  for(const f of imgs.slice(0, cupo)){ const src = await imagenLigera(f); if(src) S.renders.push(src); else malas.push(f.name); }
+  for(const f of imgs.slice(0, cupo)){ const src = await imagenLigera(f); if(src) lista.push(src); else malas.push(f.name); }
   renderThumbs(); if(S.data) renderPages();
   const puestas = imgs.slice(0, cupo).length - malas.length, sobran = imgs.length - cupo;
   if(malas.length) status(avisoHeic(malas), true);
-  else status(`${puestas} ${puestas === 1 ? 'imagen agregada' : 'imágenes agregadas'}.${sobran > 0 ? ` ${sobran} no entraron: el máximo es ${MAX_RENDERS}.` : ''}`, sobran > 0);
+  else status(`${puestas} ${puestas === 1 ? 'imagen agregada' : 'imágenes agregadas'}${S.versiones.length ? ` a ${nombreOp(S.rendOp)}` : ''}.${sobran > 0 ? ` ${sobran} no entraron: el máximo es ${MAX_RENDERS}.` : ''}`, sobran > 0);
 });
 /* Varias versiones de la misma cotización: la propuesta muestra cada opción y una página que las compara,
-   para que el cliente elija. La versión 1 es la cotización original; se pueden agregar hasta 2 más. */
-const MAX_VERSIONES = 2;
+   para que el cliente elija. La versión 1 es la cotización original; se pueden agregar hasta 4 más (5 opciones). */
+const MAX_VERSIONES = 4;
 function renderVersiones(){
   const hay = !!(S.data || S.quoteText);
   $('dropVersion').style.display = hay && S.versiones.length < MAX_VERSIONES ? 'block' : 'none';
+  renderThumbs();
   if(!S.versiones.length){ $('versiones').innerHTML = ''; return; }
   const fila = (k, titulo, archivo, quitar) => `<div class="ver"><input data-k="${k}" value="${esc(titulo)}" aria-label="Nombre de la opción" placeholder="Opción ${k+1}"><span>${esc(archivo)}</span>${quitar ? `<button type="button" data-q="${k}">Quitar</button>` : ''}</div>`;
   $('versiones').innerHTML = fila(0, S.titulo1, S.quoteName || 'Cotización original', false) + S.versiones.map((v,i)=>fila(i+1, v.titulo, v.nombre, true)).join('');
   $('versiones').querySelectorAll('input').forEach(x=>x.addEventListener('input', ()=>{
     const k = +x.dataset.k; if(k === 0) S.titulo1 = x.value; else S.versiones[k-1].titulo = x.value;
+    renderThumbs();
     clearTimeout(formTimer); formTimer = setTimeout(()=>{ if(S.data) renderPages(); }, 400);
   }));
   $('versiones').querySelectorAll('button[data-q]').forEach(b=>b.onclick = ()=>{ S.versiones.splice(+b.dataset.q - 1, 1); renderVersiones(); if(S.data) $('go').click(); });
@@ -552,17 +567,24 @@ wireDrop($('dropVersion'), $('fileVersion'), async files=>{
   try{
     const texto = await quoteFileText(f);
     if(!parseQuote(texto).groups.length){ status('En esa versión no se encontraron rubros con precio. Revisa el archivo.', true); return; }
-    S.versiones.push({ nombre: f.name, text: texto, titulo: `Opción ${S.versiones.length + 2}` });
+    S.versiones.push({ nombre: f.name, text: texto, titulo: `Opción ${S.versiones.length + 2}`, renders: [] });
     renderVersiones(); $('go').click();
-    status(`Versión agregada: la propuesta ahora tiene ${S.versiones.length + 1} opciones y una página que las compara. Cambia sus nombres arriba si quieres.`);
+    status(`Versión agregada: la propuesta ahora tiene ${S.versiones.length + 1} opciones, una página que las compara y su análisis. Cambia sus nombres arriba si quieres; sus renders se suben en Renders, eligiendo la opción.`);
   }catch(e){ status('No se pudo leer esa versión (si es un PDF escaneado no tiene texto).', true); }
 });
 const opciones = () => S.data ? [{ d:S.data, nombre: S.titulo1.trim() || 'Opción 1' }, ...S.opData.map((d,i)=>({ d, nombre: (S.versiones[i]?.titulo || '').trim() || `Opción ${i+2}` }))] : [];
 const MAX_RENDERS = 10;
+// Renders separados por opción: la 1 usa S.renders y cada versión, su propia lista (v.renders)
+const rendersDe = k => k === 0 || !S.versiones[k-1] ? S.renders : (S.versiones[k-1].renders ||= []);
+const nombreOp = k => (k === 0 ? S.titulo1 : S.versiones[k-1]?.titulo || '').trim() || `Opción ${k+1}`;
 function renderThumbs(){
-  S.renders.forEach(ratioDe);
-  $('thumbs').innerHTML = S.renders.map((src,i)=>`<figure style="background-image:url('${src}')"><button type="button" data-i="${i}" aria-label="Quitar render">✕</button></figure>`).join('');
-  $('thumbs').querySelectorAll('button').forEach(b=>b.onclick=()=>{ S.renders.splice(+b.dataset.i,1); renderThumbs(); if(S.data) renderPages(); });
+  if(S.rendOp > S.versiones.length) S.rendOp = 0;
+  $('rendOps').innerHTML = S.versiones.length ? [0, ...S.versiones.map((_,i)=>i+1)].map(k=>`<button type="button" data-k="${k}" aria-pressed="${k === S.rendOp}">${esc(nombreOp(k))} (${rendersDe(k).length})</button>`).join('') : '';
+  $('rendOps').querySelectorAll('button').forEach(b=>b.onclick = ()=>{ S.rendOp = +b.dataset.k; renderThumbs(); });
+  const lista = rendersDe(S.rendOp);
+  lista.forEach(ratioDe);
+  $('thumbs').innerHTML = lista.map((src,i)=>`<figure style="background-image:url('${src}')"><button type="button" data-i="${i}" aria-label="Quitar render">✕</button></figure>`).join('');
+  $('thumbs').querySelectorAll('button').forEach(b=>b.onclick=()=>{ lista.splice(+b.dataset.i,1); renderThumbs(); if(S.data) renderPages(); });
 }
 function status(msg, err){ $('status').textContent = msg; $('status').classList.toggle('err', !!err); }
 
@@ -1423,8 +1445,8 @@ function ratioDe(src){
   im.src = src;
   return 16/9;
 }
-function pagesGallery(d, t, n0){
-  const extra = S.renders.slice(1), hojas = [];
+function pagesGallery(d, t, n0, extra = S.renders.slice(1), etiqueta = ''){
+  const hojas = [];
   let hoja = [], usado = 0;
   extra.forEach(src=>{
     const h = Math.min(ANCHO_PAG / ratioDe(src), 620);
@@ -1437,7 +1459,7 @@ function pagesGallery(d, t, n0){
   return hojas.map((hj, i)=>{
     const total = hj.reduce((a,x)=>a+x.h,0) + GAP_GALERIA*(hj.length-1), k = Math.min(1, ALTO_GALERIA/total);
     return `<div class="page" style="--pacc:${t.bg}">${corner(t)}<div class="pad">
-    ${secHead('Galería', i===0 ? 'Vistas referenciales del montaje' : 'Continuación')}
+    ${secHead('Galería', etiqueta ? `${etiqueta} · ${i===0 ? 'vistas referenciales' : 'continuación'}` : i===0 ? 'Vistas referenciales del montaje' : 'Continuación')}
     <div class="gallery">${hj.map(x=>`<div class="render" style="height:${Math.floor(x.h*k)}px"><img src="${x.src}" alt="Render del montaje"></div>`).join('')}</div>
     <p class="rcap" style="margin-top:10px">Renders referenciales. La ubicación final se ajusta a la distribución del recinto.</p>
   </div>${foot(n0+i,d,t)}</div>`;
@@ -1476,7 +1498,7 @@ function pagesInvestment(d, c, t, n0, op = {}){
   if(needSplitTotals) pages.push(`<div class="page" style="--pacc:${t.bg}">${corner(t)}<div class="pad">${secHead('Inversión', op.etiqueta ? `${op.etiqueta} · resumen` : 'resumen')}<table class="inv"><tbody>${sums}</tbody></table>${totals}</div>${foot(n0+pages.length,d,t)}</div>`);
   return pages;
 }
-// Página que compara las opciones: total de cada una, rubros lado a lado y qué cambia entre ellas
+// Página que compara las opciones: total de cada una y rubros lado a lado (el porqué va en Análisis)
 function pageCompare(ops, t, n){
   const d0 = ops[0].d, cs = ops.map(o=>compute(o.d)), k = x => norm(x).replace(/s\b/g, '');
   const cards = ops.map((o,i)=>{
@@ -1494,26 +1516,101 @@ function pageCompare(ops, t, n){
     + (cs.some(c=>c.descuento) ? `<tr class="sum"><td>Descuento</td>${cs.map(c=>`<td class="r">${c.descuento ? '−'+money(c.descuento) : '—'}</td>`).join('')}</tr>` : '')
     + `<tr class="sum"><td>${esc(imp)}</td>${cs.map(c=>`<td class="r">${money(c.itbms)}</td>`).join('')}</tr>`
     + `<tr class="tot"><td>Inversión total</td>${cs.map(c=>`<td class="r">${money(c.total)}</td>`).join('')}</tr>`;
-  // qué cambia: ítems que solo están en una opción y cantidades distintas
-  const items = cs.map(c=>{ const m = new Map(); c.groups.forEach(g=>g.items.forEach(it=>{ const key = k(it.concepto); if(key && !m.has(key)) m.set(key, it); })); return m; });
-  const lista = (arr, max = 8) => arr.length > max ? arr.slice(0, max).join(', ') + ` y ${arr.length - max} más` : arr.join(', ');
-  const difs = [];
-  items.forEach((m,i)=>{
-    const solo = [...m.entries()].filter(([key])=>items.every((o,j)=>j === i || !o.has(key))).map(([,it])=>[it.cantidad, it.concepto].filter(Boolean).join(' '));
-    if(solo.length) difs.push(`<li><b>Solo en ${esc(ops[i].nombre)}:</b> ${esc(lista(solo))}.</li>`);
-  });
-  const cant = [...items[0].entries()].filter(([key, it])=>items.every(o=>o.has(key)) && items.some(o=>String(o.get(key).cantidad||'') !== String(it.cantidad||'')))
-    .map(([key, it])=>`${it.concepto} (${items.map(o=>o.get(key).cantidad || '—').join(' / ')})`);
-  if(cant.length) difs.push(`<li><b>Cambia la cantidad:</b> ${esc(lista(cant))}, en el orden ${esc(ops.map(o=>o.nombre).join(' / '))}.</li>`);
-  if(!difs.length) difs.push(`<li>Las opciones tienen los mismos equipos; cambian los montos.</li>`);
   return `<div class="page" style="--pacc:${t.bg}">${corner(t)}<div class="pad">
     ${secHead('Opciones', 'compara y elige la que mejor se ajusta')}
-    <div class="opcards" style="grid-template-columns:repeat(${ops.length},1fr)">${cards}</div>
+    <div class="opcards${ops.length > 3 ? ' muchas' : ''}" style="grid-template-columns:repeat(${ops.length},1fr)">${cards}</div>
     <table class="inv comp"><thead><tr><th>Rubro</th>${ops.map(o=>`<th class="r">${esc(o.nombre)}</th>`).join('')}</tr></thead><tbody>${filas}${sums}</tbody></table>
-    <div class="cond" style="margin-top:22px"><h4>Qué cambia entre las opciones</h4></div>
-    <ul class="difs">${difs.join('')}</ul>
-    <p class="rcap" style="margin-top:16px">El detalle de cada opción está en las páginas de Inversión que siguen. Al confirmar, marca la opción elegida en la página de firma.</p>
+    <p class="rcap" style="margin-top:16px">En la página de Análisis se explica qué cambia entre las opciones y por qué varía el precio. El detalle de cada una está en sus páginas de Inversión; al confirmar, marca la opción elegida en la página de firma.</p>
   </div>${foot(n,d0,t)}</div>`;
+}
+/* Análisis de las opciones (reglas locales, sin IA): explica por qué cambia el precio de cada opción frente a la 1
+   — qué rubros suben o bajan, qué equipos se suman o se quitan, cantidades, valores y jornadas — y da una guía para decidir. */
+function analisisOpciones(ops){
+  const cs = ops.map(o=>compute(o.d)), k = x => norm(x).replace(/s\b/g, ''), base = cs[0], b0 = ops[0].nombre;
+  const pct = (a, b) => b ? Math.round(Math.abs(a) / b * 100) : 0;
+  const signo = x => (x > 0 ? '+' : '−') + money(Math.abs(x));
+  const corto = (arr, max = 4) => arr.length > max ? arr.slice(0, max).join(', ') + ` y ${arr.length - max} más` : arr.join(', ');
+  const itemsDe = g => { const m = new Map(); (g?.items || []).forEach(it=>{ const key = k(it.concepto); if(key && !m.has(key)) m.set(key, it); }); return m; };
+  const nomIt = it => [it.cantidad, it.concepto].filter(Boolean).join(' ');
+  const nItems = c => c.groups.reduce((a,g)=>a+g.items.length, 0);
+  // por qué cambia un rubro: equipos que entran o salen, cantidades, valores unitarios y jornadas
+  function porQue(g0, g1){
+    const m0 = itemsDe(g0), m1 = itemsDe(g1), r = [];
+    const suma = [...m1.keys()].filter(x=>!m0.has(x)).map(x=>nomIt(m1.get(x)));
+    const quita = [...m0.keys()].filter(x=>!m1.has(x)).map(x=>nomIt(m0.get(x)));
+    const cant = [], valor = [], jorn = [];
+    [...m1.keys()].filter(x=>m0.has(x)).forEach(x=>{
+      const a = m0.get(x), b = m1.get(x);
+      if(String(a.cantidad||'') !== String(b.cantidad||'')) cant.push(`${b.concepto} pasa de ${a.cantidad||'—'} a ${b.cantidad||'—'}`);
+      else if(a.factor != null && b.factor != null && Math.abs(a.factor - b.factor) > 0.001) jorn.push(`${b.concepto} se cobra ${fmtFactor(b.factor)} ${b.factor == 1 ? 'vez' : 'veces'} en lugar de ${fmtFactor(a.factor)}`);
+      else if(a.unit != null && b.unit != null && Math.abs(a.unit - b.unit) >= 0.01) valor.push(`${b.concepto} a ${money(b.unit)} en lugar de ${money(a.unit)}`);
+    });
+    if(suma.length) r.push(`suma ${corto(suma, 3)}`);
+    if(quita.length) r.push(`no lleva ${corto(quita, 3)}`);
+    if(cant.length) r.push(corto(cant, 3));
+    if(jorn.length) r.push(corto(jorn, 2));
+    if(valor.length) r.push(corto(valor, 2));
+    return r;
+  }
+  const bloques = ops.slice(1).map((o, j)=>{
+    const i = j + 1, c = cs[i], dif = c.total - base.total, li = [];
+    li.push(Math.abs(dif) < 0.01 ? `Tiene la <b>misma inversión</b> que ${esc(b0)}: cambia el contenido, no el valor.`
+      : `Cuesta <b>${money(Math.abs(dif))} ${dif > 0 ? 'más' : 'menos'}</b> que ${esc(b0)} (${pct(dif, base.total)} % ${dif > 0 ? 'por encima' : 'por debajo'}).${o.d.itbms_aplica && Math.abs(c.itbms - base.itbms) >= 0.01 ? ` Antes de ${esc(o.d.impuesto_nombre || 'ITBMS')}, la diferencia es de ${money(Math.abs((c.total - c.itbms) - (base.total - base.itbms)))}.` : ''}`);
+    // rubros que más mueven la diferencia
+    const claves = []; [base, c].forEach(x=>x.groups.forEach(g=>{ if(!claves.includes(k(g.nombre))) claves.push(k(g.nombre)); }));
+    const movs = claves.map(key=>{ const g0 = base.groups.find(g=>k(g.nombre) === key), g1 = c.groups.find(g=>k(g.nombre) === key);
+      return { g0, g1, nombre: (g1 || g0).nombre, d: (g1?.subtotal || 0) - (g0?.subtotal || 0) }; });
+    const nuevos = movs.filter(m=>!m.g0), fuera = movs.filter(m=>!m.g1);
+    if(nuevos.length) li.push(`<b>Suma ${esc(corto(nuevos.map(m=>m.nombre)))}</b> (${money(nuevos.reduce((a,m)=>a+m.d, 0))}), que ${esc(b0)} no incluye${nuevos.length === 1 && nuevos[0].g1.items.length ? `: ${esc(corto(nuevos[0].g1.items.map(nomIt), 3))}` : ''}.`);
+    if(fuera.length) li.push(`<b>No incluye ${esc(corto(fuera.map(m=>m.nombre)))}</b>, que en ${esc(b0)} ${fuera.length === 1 ? 'vale' : 'suman'} ${money(-fuera.reduce((a,m)=>a+m.d, 0))}.`);
+    const cambian = movs.filter(m=>m.g0 && m.g1 && Math.abs(m.d) >= 0.01).sort((a,b)=>Math.abs(b.d) - Math.abs(a.d));
+    cambian.slice(0, 3).forEach(m=>{ const r = porQue(m.g0, m.g1);
+      li.push(`<b>${esc(m.nombre)} ${signo(m.d)}</b>${r.length ? `: ${esc(r.join('; '))}` : ''}.`); });
+    const sinCambio = movs.filter(m=>m.g0 && m.g1 && Math.abs(m.d) < 0.01).map(m=>m.nombre);
+    // rubros con el mismo monto pero distinto contenido
+    movs.filter(m=>m.g0 && m.g1 && Math.abs(m.d) < 0.01).forEach(m=>{ const r = porQue(m.g0, m.g1); if(r.length && li.length < 6) li.push(`<b>${esc(m.nombre)}</b>, mismo monto: ${esc(r.join('; '))}.`); });
+    // qué rubro explica la mayor parte de la diferencia
+    const mueven = movs.filter(m=>Math.abs(m.d) >= 0.01).sort((a,b)=>Math.abs(b.d) - Math.abs(a.d));
+    const subDif = (c.subtotal - c.descuento) - (base.subtotal - base.descuento);
+    if(mueven.length > 1 && Math.abs(subDif) >= 0.01){
+      const contra = mueven.filter(m=>Math.sign(m.d) !== Math.sign(subDif)), top = mueven[0];
+      if(!contra.length) li.push(`${esc(top.nombre)} explica el ${pct(top.d, Math.abs(subDif))} % de la diferencia.`);
+      else { const aFavor = mueven.filter(m=>Math.sign(m.d) === Math.sign(subDif)), opuestos = Math.sign(top.d) === Math.sign(subDif) ? contra : aFavor;
+        li.push(`<b>En balance:</b> la mayor variación está en ${esc(top.nombre)} (${signo(top.d)}); ${esc(corto(opuestos.map(m=>m.nombre), 3))} ${opuestos.length === 1 ? 'va' : 'van'} en sentido contrario (${signo(opuestos.reduce((a,m)=>a+m.d, 0))}).`); }
+    }
+    if(Math.abs(c.descuento - base.descuento) >= 0.01) li.push(`Descuento: ${money(c.descuento)} frente a ${money(base.descuento)} en ${esc(b0)}.`);
+    if(sinCambio.length && li.length < 7) li.push(`Igual en ambas: ${esc(corto(sinCambio))}.`);
+    return { nombre: o.nombre, total: c.total, dif, li };
+  });
+  // resumen general y guía para decidir
+  const orden = ops.map((o,i)=>({ o, c: cs[i], n: nItems(cs[i]), g: cs[i].groups.length })).sort((a,b)=>a.c.total - b.c.total);
+  const barata = orden[0], cara = orden[orden.length - 1], completa = [...orden].sort((a,b)=>b.g - a.g || b.n - a.n)[0];
+  const comunes = base.groups.filter(g=>cs.every(c=>c.groups.some(x=>k(x.nombre) === k(g.nombre)))).map(g=>g.nombre);
+  const distintos = []; cs.forEach(c=>c.groups.forEach(g=>{ if(!comunes.some(x=>k(x) === k(g.nombre)) && !distintos.some(x=>k(x) === k(g.nombre))) distintos.push(g.nombre); }));
+  const res = [];
+  res.push(Math.abs(cara.c.total - barata.c.total) < 0.01 ? `Todas las opciones tienen la misma inversión: ${money(barata.c.total)}.`
+    : `<b>Rango de inversión:</b> de ${money(barata.c.total)} (${esc(barata.o.nombre)}) a ${money(cara.c.total)} (${esc(cara.o.nombre)}), una diferencia de ${money(cara.c.total - barata.c.total)}: ${cara.c.total >= 2 * barata.c.total ? `la de mayor inversión equivale a ${(Math.round(cara.c.total / barata.c.total * 10) / 10).toString().replace('.', ',')} veces la más económica` : `la de mayor inversión está ${pct(cara.c.total - barata.c.total, barata.c.total)} % por encima de la más económica`}.`);
+  if(comunes.length) res.push(`<b>Base común:</b> todas incluyen ${esc(corto(comunes, 6))}.${distintos.length ? ` Lo que las distingue: ${esc(corto(distintos, 6))}.` : ' Cambian las cantidades y los equipos dentro de cada rubro.'}`);
+  const guia = [];
+  if(barata !== cara) guia.push(`si la prioridad es el presupuesto, ${esc(barata.o.nombre)} cubre ${esc(corto(barata.c.groups.map(g=>g.nombre), 4)).toLowerCase()} con la menor inversión`);
+  if(completa !== barata) { const extra = completa.c.groups.filter(g=>!barata.c.groups.some(x=>k(x.nombre) === k(g.nombre))).map(g=>g.nombre);
+    guia.push(`si se busca más alcance, ${esc(completa.o.nombre)} ${extra.length ? `suma ${esc(corto(extra)).toLowerCase()}` : `trae ${completa.n} ítems frente a ${barata.n}`} por ${money(completa.c.total - barata.c.total)} más`); }
+  if(completa === barata && cara !== barata){ const solo = cara.c.groups.filter(g=>!barata.c.groups.some(x=>k(x.nombre) === k(g.nombre))).map(g=>g.nombre);
+    if(solo.length) guia.push(`si se necesita ${esc(corto(solo)).toLowerCase()}, ${esc(cara.o.nombre)} ${solo.length === 1 ? 'lo incluye' : 'los incluye'} por ${money(cara.c.total - barata.c.total)} más`); }
+  if(guia.length) res.push(`<b>Para decidir:</b> ${cap(guia.join('; '))}.`);
+  return { res, bloques };
+}
+function pagesAnalisis(ops, t, n0){
+  const { res, bloques } = analisisOpciones(ops), d0 = ops[0].d;
+  const html = bloques.map(b=>({ h: `<h3>${esc(b.nombre)} frente a ${esc(ops[0].nombre)}<span>${money(b.total)}</span></h3><ul>${b.li.map(x=>`<li>${x}</li>`).join('')}</ul>`, peso: 60 + b.li.reduce((a,x)=>a + 22 * Math.ceil(x.replace(/<[^>]+>/g,'').length / 105), 0) }));
+  const pages = []; let cur = [], room = 780 - 60 - res.reduce((a,x)=>a + 22 * Math.ceil(x.replace(/<[^>]+>/g,'').length / 105) + 26, 0);
+  html.forEach(b=>{ if(cur.length && b.peso > room){ pages.push(cur); cur = []; room = 780; } cur.push(b.h); room -= b.peso; });
+  pages.push(cur);
+  return pages.map((p,i)=>`<div class="page" style="--pacc:${t.bg}">${corner(t)}<div class="pad analisis">
+    ${secHead('Análisis', i === 0 ? 'por qué cambia cada opción' : 'continuación')}
+    ${i === 0 ? `<div class="resumen">${res.map(x=>`<div>${x}</div>`).join('')}</div>` : ''}
+    ${p.join('')}
+  </div>${foot(n0+i, d0, t)}</div>`);
 }
 // Forma de pago elegida en el formulario (por defecto, 100 % por adelantado)
 function formaPago(total){
@@ -1579,11 +1676,14 @@ function renderPages(){
   if(!S.renders.length && d._raw) S.sketch = sketchSvg(d, t);
   const html = [pageCover(d,c,t)];
   html.push(pageSolution(d,c,t,2));
-  const gal = pagesGallery(d,t,3); html.push(...gal);
   const ops = opciones(), multi = ops.length > 1;
+  const gal = pagesGallery(d, t, 3, S.renders.slice(1), multi ? ops[0].nombre : ''); html.push(...gal);
   let n = 3 + gal.length;
-  if(multi){ html.push(pageCompare(ops, t, n)); n++; }
-  ops.forEach((o,i)=>{ const inv = multi ? pagesInvestment(o.d, compute(o.d), t, n, { etiqueta:o.nombre, beneficios: i === ops.length-1 }) : pagesInvestment(d,c,t,n); html.push(...inv); n += inv.length; });
+  if(multi){ html.push(pageCompare(ops, t, n)); n++; const an = pagesAnalisis(ops, t, n); html.push(...an); n += an.length; }
+  ops.forEach((o,i)=>{
+    if(i > 0){ const g = pagesGallery(o.d, t, n, rendersDe(i), o.nombre); html.push(...g); n += g.length; }   // renders propios de cada versión, antes de su inversión
+    const inv = multi ? pagesInvestment(o.d, compute(o.d), t, n, { etiqueta:o.nombre, beneficios: i === ops.length-1 }) : pagesInvestment(d,c,t,n); html.push(...inv); n += inv.length;
+  });
   const cond = pagesConditions(d,c,t,n); html.push(...cond); n += cond.length;
   html.push(pageClosing(d,c,t,n));
   $('pages').innerHTML = html.map(h=>`<div class="pagewrap">${h}</div>`).join('');
@@ -1673,7 +1773,7 @@ const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice
 function estadoActual(){
   return {
     exec: S.exec, quoteText: S.quoteText, quoteName: S.quoteName, quotePaste: $('quotePaste').value,
-    versiones: S.versiones.map(v=>({ ...v })), titulo1: S.titulo1,
+    versiones: S.versiones.map(v=>({ nombre:v.nombre, text:v.text, titulo:v.titulo })), titulo1: S.titulo1,
     form: { cliente:$('fCliente').value, evento:$('fEvento').value, recinto:$('fRecinto').value, fecha:$('fFecha').value, context:$('context').value, firmaNombre:$('fFirmaNombre').value, firmaCargo:$('fFirmaCargo').value },
     desglose: !!S.desglose, clauses: [...S.clauses], customClauses: $('customClauses').value,
     pago: document.querySelector('input[name="pago"]:checked')?.value || 'adelantado', pagoDias: $('pagoDias').value, pagoTexto: $('pagoTexto').value
@@ -1685,7 +1785,7 @@ async function guarda(){
   if(!S.data || !S.saveId) return;
   const d = S.data, c = compute(d);
   const reg = { id: S.saveId, guardada: Date.now(), cliente: d.cliente || '', evento: d.evento || '', numero: d.numero_cotizacion || '', total: c.total,
-    estado: { ...estadoActual(), renders: S.renders.slice(), ediciones: S.editado ? $('pages').innerHTML : null } };
+    estado: { ...estadoActual(), renders: S.renders.slice(), rendersVersiones: S.versiones.map(v=>(v.renders||[]).slice()), ediciones: S.editado ? $('pages').innerHTML : null } };
   try{ await DB.pon(reg); listaGuardadas(); }catch(_){ status('No se pudo guardar la propuesta en este navegador (¿modo privado o sin espacio?).', true); }
 }
 async function listaGuardadas(){
@@ -1712,14 +1812,14 @@ function aplicaEstado(e){
   $('quoteChip').innerHTML = S.quoteName ? `<div class="filechip"><span>${esc(S.quoteName)}</span><button type="button" id="rmQuote">Quitar</button></div>` : '';
   if($('rmQuote')) $('rmQuote').onclick = ()=>{ S.quoteText=''; S.quoteName=''; $('quoteChip').innerHTML=''; };
   $('quotePaste').value = e.quotePaste || '';
-  S.versiones = Array.isArray(e.versiones) ? e.versiones.slice(0, MAX_VERSIONES) : []; S.titulo1 = e.titulo1 || 'Opción 1'; renderVersiones();
+  S.versiones = Array.isArray(e.versiones) ? e.versiones.slice(0, MAX_VERSIONES).map((v,i)=>({ ...v, renders: (e.rendersVersiones?.[i] || []).slice(0, MAX_RENDERS) })) : []; S.titulo1 = e.titulo1 || 'Opción 1'; S.rendOp = 0;
   const fm = e.form || {}; $('fCliente').value = fm.cliente || ''; $('fEvento').value = fm.evento || ''; $('fRecinto').value = fm.recinto || ''; $('fFecha').value = fm.fecha || ''; $('context').value = fm.context || ''; $('fFirmaNombre').value = fm.firmaNombre || ''; $('fFirmaCargo').value = fm.firmaCargo || 'Representante legal';
   S.desglose = !!e.desglose; $('desglose').checked = S.desglose;
   S.clauses = new Set(Array.isArray(e.clauses) ? e.clauses : DEFAULT_CLAUSES.map((_,i)=>i)); renderClauses();
   $('customClauses').value = e.customClauses || '';
   const r = document.querySelector(`input[name="pago"][value="${e.pago || 'adelantado'}"]`) || document.querySelector('input[name="pago"][value="adelantado"]'); r.checked = true;
   $('pagoDias').value = e.pagoDias || 30; $('pagoTexto').value = e.pagoTexto || ''; $('pagoTexto').hidden = r.value !== 'otra';
-  S.renders = Array.isArray(e.renders) ? e.renders.slice(0, MAX_RENDERS) : []; renderThumbs();
+  S.renders = Array.isArray(e.renders) ? e.renders.slice(0, MAX_RENDERS) : []; renderVersiones();
   $('go').click();
   if(e.ediciones && S.data){ $('pages').innerHTML = e.ediciones; S.editado = true; fitPages(); }
 }
