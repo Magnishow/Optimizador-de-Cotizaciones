@@ -603,7 +603,7 @@ wireDrop($('dropVersion'), $('fileVersion'), async files=>{
     if(!parseQuote(texto).groups.length){ status('En esa versión no se encontraron rubros con precio. Revisa el archivo.', true); return; }
     S.versiones.push({ nombre: f.name, text: texto, titulo: `Opción ${S.versiones.length + 2}`, renders: [] });
     renderVersiones(); $('go').click();
-    status(`Versión agregada: la propuesta ahora tiene ${S.versiones.length + 1} opciones, una página que las compara y su análisis. Cambia sus nombres arriba si quieres; sus renders se suben en Renders, eligiendo la opción.`);
+    status(`Versión agregada: la propuesta ahora tiene ${S.versiones.length + 1} opciones y una página que las compara. Cambia sus nombres arriba si quieres; sus renders se suben en Renders, eligiendo la opción.`);
   }catch(e){ status('No se pudo leer esa versión (si es un PDF escaneado no tiene texto).', true); }
 });
 const opciones = () => S.data ? [{ d:S.data, nombre: S.titulo1.trim() || 'Opción 1' }, ...S.opData.map((d,i)=>({ d, nombre: (S.versiones[i]?.titulo || '').trim() || `Opción ${i+2}` }))] : [];
@@ -1554,13 +1554,15 @@ function pageCompare(ops, t, n){
     ${secHead('Opciones', 'compara y elige la que mejor se ajusta')}
     <div class="opcards${ops.length > 3 ? ' muchas' : ''}" style="grid-template-columns:repeat(${ops.length},1fr)">${cards}</div>
     <table class="inv comp"><thead><tr><th>Rubro</th>${ops.map(o=>`<th class="r">${esc(o.nombre)}</th>`).join('')}</tr></thead><tbody>${filas}${sums}</tbody></table>
-    <p class="rcap" style="margin-top:16px">Al final, después de las condiciones, el Análisis explica qué cambia entre las opciones y por qué varía el precio. El detalle de cada una está en sus páginas de Inversión; al confirmar, marca la opción elegida en la página de firma.</p>
+    <p class="rcap" style="margin-top:16px">${MOSTRAR_ANALISIS ? 'Al final, después de las condiciones, el Análisis explica qué cambia entre las opciones y por qué varía el precio. ' : ''}El detalle de cada opción está en sus páginas de Inversión; al confirmar, marca la opción elegida en la página de firma.</p>
   </div>${foot(n,d0,t)}</div>`;
 }
 /* Análisis de las opciones (reglas locales, sin IA). Va al final, después de las Condiciones.
    1) Resumen: barras con la inversión de cada opción, qué tienen en común y "Elige esta opción si…".
    2) Por cada opción frente a la 1, dos hojas: una frase que lo resume, de dónde sale la diferencia (barras por rubro)
       y lo que suma y deja fuera; luego, por qué cambia cada rubro, en palabras simples. */
+// Apagado por pedido de Diego (27-nov-2026): no le gustó el análisis. El código queda para rehacerlo más adelante.
+const MOSTRAR_ANALISIS = false;
 const QUE_ES = [[/stream|transmis/, 'transmisión en vivo para la audiencia remota'], [/audio|sonido/, 'el sonido del evento'], [/ilumin|luz|luces/, 'la iluminación de escena y ambiente'],
   [/video|pantalla|led/, 'las pantallas y el manejo de contenido'], [/tarima|escenario/, 'el escenario'], [/logist|transporte|montaje/, 'montaje, transporte y producción'],
   [/silla|mobiliario|mueble/, 'el mobiliario'], [/fee|gestion/, 'la gestión del proyecto'], [/foto|camara|grabacion|registro/, 'el registro audiovisual'], [/decor|escenograf/, 'la decoración y escenografía'], [/energ|planta|generador/, 'la energía eléctrica']];
@@ -1749,7 +1751,7 @@ function renderPages(){
     const inv = multi ? pagesInvestment(o.d, compute(o.d), t, n, { etiqueta:o.nombre, beneficios: i === ops.length-1 }) : pagesInvestment(d,c,t,n); html.push(...inv); n += inv.length;
   });
   const cond = pagesConditions(d,c,t,n); html.push(...cond); n += cond.length;
-  if(multi){ const an = pagesAnalisis(ops, t, n); html.push(...an); n += an.length; }   // el análisis va al final, después de las condiciones
+  if(multi && MOSTRAR_ANALISIS){ const an = pagesAnalisis(ops, t, n); html.push(...an); n += an.length; }   // el análisis va al final, después de las condiciones
   html.push(pageClosing(d,c,t,n));
   $('pages').innerHTML = html.map(h=>`<div class="pagewrap">${h}</div>`).join('');
   $('pages').querySelectorAll('.page').forEach(p=>{
