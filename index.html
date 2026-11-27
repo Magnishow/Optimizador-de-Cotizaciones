@@ -64,6 +64,10 @@ body::before{content:""; position:fixed; inset:0 0 auto; height:env(safe-area-in
 .saved button{border:0; background:none; cursor:pointer; font-size:12.5px; text-decoration:underline; color:var(--muted); padding:2px 0}
 .saved-acts{display:flex; gap:8px; margin-top:10px}
 .saved-acts .btn{padding:7px 12px; font-size:13px}
+.ver{display:flex; align-items:center; gap:8px; margin-top:8px; padding:6px 10px; background:var(--panel); font-size:13px}
+.ver input{width:130px; border:1px solid var(--line); background:var(--surface); padding:4px 6px; font-size:13px; font-weight:600}
+.ver span{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted)}
+.ver button{border:0; background:none; cursor:pointer; text-decoration:underline; font-size:13px}
 .filechip button{border:0; background:none; cursor:pointer; text-decoration:underline; font-size:13px}
 details.paste{margin-top:8px; font-size:13px} details.paste summary{cursor:pointer; color:var(--muted)}
 textarea{width:100%; min-height:90px; border:1px solid var(--line); background:var(--surface); padding:10px; resize:vertical; font-size:13.5px}
@@ -174,6 +178,24 @@ table.inv tr.sum.first td{border-top:2px solid #000; padding-top:12px}
 .benef span{display:block; font-size:11.5px; color:#333; line-height:1.45}
 .page.apretada table.inv td{padding-top:6px; padding-bottom:6px} .page.apretada table.inv tr.grp td{border-top-width:6px} .page.apretada .dist, .page.apretada .benef{margin-top:16px} .page.apretada .benef ul{gap:8px 24px} .page.apretada .benef span{font-size:11px; line-height:1.4}
 
+/* opciones: comparación de versiones de la cotización */
+.opcards{display:grid; gap:14px; margin-bottom:22px}
+.opcard{border-top:8px solid var(--pacc); background:#f2f2f2; padding:14px 16px}
+.opcard h3{font:700 22px/1 var(--f-title); text-transform:uppercase; margin:0 0 8px}
+.opcard b{display:block; font:700 30px/1 var(--f-title)}
+.opcard small{display:block; font-size:11px; color:#555; margin-top:4px}
+.opcard p{font-size:11.5px; line-height:1.45; margin:10px 0 0}
+table.inv.comp td.r b{font-weight:700}
+table.inv.comp td.no{color:#8a8a8a; text-align:right; white-space:nowrap}
+table.inv.comp tr.tot td{background:#000; color:#fff; font:700 15px/1.2 var(--f-title); padding:10px}
+.difs{list-style:none; margin:0; padding:0; display:grid; gap:10px}
+.difs li{padding-left:20px; position:relative; font-size:11.5px; line-height:1.45}
+.difs li::before{content:""; position:absolute; left:0; top:5px; width:10px; height:10px; background:var(--pacc); transform:skewX(-10deg)}
+.difs b{font-weight:600}
+.page.apretada .opcard{padding:10px 14px} .page.apretada .opcard p{margin-top:6px} .page.apretada .difs{gap:6px}
+.eleccion{display:flex; flex-wrap:wrap; align-items:center; gap:10px 26px; font-size:12.5px; margin:4px 0 14px}
+.eleccion i{display:inline-block; width:14px; height:14px; border:1.5px solid #000; margin-right:8px; vertical-align:-2px}
+
 /* conditions */
 table.cal{width:100%; border-collapse:collapse; font-size:12px; margin-bottom:24px}
 table.cal td{padding:8px 0; border-bottom:1px solid #e1e1e1; vertical-align:top}
@@ -239,6 +261,8 @@ table.cal{margin-bottom:18px}
     <p class="help">El PDF de Rentman. De aquí salen rubros, montos, fechas y recinto.</p>
     <label class="drop" id="dropQuote"><input type="file" id="fileQuote" accept=".pdf,.xlsx,.xlsm,.xls,.csv,.ods,.docx,application/pdf"><strong>Sube la cotización</strong> (PDF, Excel o Word) o arrástrala aquí</label>
     <div id="quoteChip"></div>
+    <div id="versiones"></div>
+    <label class="drop" id="dropVersion" style="display:none;margin-top:8px;padding:12px"><input type="file" id="fileVersion" accept=".pdf,.xlsx,.xlsm,.xls,.csv,.ods,.docx,application/pdf"><strong>+ Agregar otra versión</strong> de la cotización, para que el cliente compare y elija</label>
     <details class="paste"><summary>¿No lee el PDF? Pega el texto de la cotización</summary><textarea id="quotePaste" placeholder="Pega aquí el contenido de la cotización"></textarea></details>
     <label class="check" style="margin-top:8px"><input type="checkbox" id="desglose"><span>Mostrar el monto de cada ítem (desglosado). Sin marcar, la inversión sale solo por grupos.</span></label>
   </section>
@@ -372,7 +396,7 @@ const svgWord = (m,s) => svgDoc(LOGO.word.vb, paths(LOGO.word.magni, m)+paths(LO
 const uri = svg => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
 
 /* ——— State ——— */
-const S = { exec:'Diego', quoteText:'', quoteName:'', renders:[], clauses:new Set(DEFAULT_CLAUSES.map((_,i)=>i)), data:null, sketch:null, busy:false };
+const S = { exec:'Diego', quoteText:'', quoteName:'', versiones:[], titulo1:'Opción 1', opData:[], renders:[], clauses:new Set(DEFAULT_CLAUSES.map((_,i)=>i)), data:null, sketch:null, busy:false };
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const money = n => '$' + (Number(n)||0).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2});
@@ -467,7 +491,7 @@ wireDrop($('dropQuote'), $('fileQuote'), async files=>{
       throw new Error('vacío');
     }
     if(S.data) await guarda();
-    S.saveId = nuevoId(); S.quoteText = texto; S.quoteName = f.name;
+    S.saveId = nuevoId(); S.quoteText = texto; S.quoteName = f.name; S.versiones = []; S.titulo1 = 'Opción 1'; renderVersiones();
     $('quoteChip').innerHTML = `<div class="filechip"><span>${esc(f.name)}</span><button type="button" id="rmQuote">Quitar</button></div>`;
     $('rmQuote').onclick = ()=>{ S.quoteText=''; S.quoteName=''; $('quoteChip').innerHTML=''; };
     try{ fillForm(parseQuote(S.quoteText)); $('go').click(); }catch(_){}
@@ -505,6 +529,35 @@ wireDrop($('dropRenders'), $('fileRenders'), async files=>{
   if(malas.length) status(avisoHeic(malas), true);
   else status(`${puestas} ${puestas === 1 ? 'imagen agregada' : 'imágenes agregadas'}.${sobran > 0 ? ` ${sobran} no entraron: el máximo es ${MAX_RENDERS}.` : ''}`, sobran > 0);
 });
+/* Varias versiones de la misma cotización: la propuesta muestra cada opción y una página que las compara,
+   para que el cliente elija. La versión 1 es la cotización original; se pueden agregar hasta 2 más. */
+const MAX_VERSIONES = 2;
+function renderVersiones(){
+  const hay = !!(S.data || S.quoteText);
+  $('dropVersion').style.display = hay && S.versiones.length < MAX_VERSIONES ? 'block' : 'none';
+  if(!S.versiones.length){ $('versiones').innerHTML = ''; return; }
+  const fila = (k, titulo, archivo, quitar) => `<div class="ver"><input data-k="${k}" value="${esc(titulo)}" aria-label="Nombre de la opción" placeholder="Opción ${k+1}"><span>${esc(archivo)}</span>${quitar ? `<button type="button" data-q="${k}">Quitar</button>` : ''}</div>`;
+  $('versiones').innerHTML = fila(0, S.titulo1, S.quoteName || 'Cotización original', false) + S.versiones.map((v,i)=>fila(i+1, v.titulo, v.nombre, true)).join('');
+  $('versiones').querySelectorAll('input').forEach(x=>x.addEventListener('input', ()=>{
+    const k = +x.dataset.k; if(k === 0) S.titulo1 = x.value; else S.versiones[k-1].titulo = x.value;
+    clearTimeout(formTimer); formTimer = setTimeout(()=>{ if(S.data) renderPages(); }, 400);
+  }));
+  $('versiones').querySelectorAll('button[data-q]').forEach(b=>b.onclick = ()=>{ S.versiones.splice(+b.dataset.q - 1, 1); renderVersiones(); if(S.data) $('go').click(); });
+}
+wireDrop($('dropVersion'), $('fileVersion'), async files=>{
+  const f = files.find(f=>/\.(pdf|xlsx|xlsm|xls|csv|ods|docx)$/i.test(f.name) || f.type==='application/pdf');
+  if(!f){ status('Sube la otra versión en PDF, Excel (.xlsx) o Word (.docx).', true); return; }
+  if(S.versiones.length >= MAX_VERSIONES){ status(`Ya hay ${MAX_VERSIONES + 1} opciones, que es el máximo.`, true); return; }
+  status('Leyendo la otra versión…');
+  try{
+    const texto = await quoteFileText(f);
+    if(!parseQuote(texto).groups.length){ status('En esa versión no se encontraron rubros con precio. Revisa el archivo.', true); return; }
+    S.versiones.push({ nombre: f.name, text: texto, titulo: `Opción ${S.versiones.length + 2}` });
+    renderVersiones(); $('go').click();
+    status(`Versión agregada: la propuesta ahora tiene ${S.versiones.length + 1} opciones y una página que las compara. Cambia sus nombres arriba si quieres.`);
+  }catch(e){ status('No se pudo leer esa versión (si es un PDF escaneado no tiene texto).', true); }
+});
+const opciones = () => S.data ? [{ d:S.data, nombre: S.titulo1.trim() || 'Opción 1' }, ...S.opData.map((d,i)=>({ d, nombre: (S.versiones[i]?.titulo || '').trim() || `Opción ${i+2}` }))] : [];
 const MAX_RENDERS = 10;
 function renderThumbs(){
   S.renders.forEach(ratioDe);
@@ -1280,13 +1333,14 @@ $('go').onclick = ()=>{
   if(!parsed.groups.length){ status('No se encontraron rubros con precio. Revisa que el documento tenga una tabla con descripción y montos, o pega el texto completo.', true); return; }
   if(!S.quoteText && !$('fEvento').value && !$('fCliente').value) fillForm(parsed);
   S.data = buildData(parsed, readForm());
+  S.opData = S.versiones.map(v=>buildData(parseQuote(v.text), readForm()));
   const veDoc = S.data.pais === 'VE';
   $('clausesHelp').textContent = veDoc ? 'Cotización de Venezuela: la propuesta usa las condiciones del propio documento. Esta lista de Panamá no se incluye.' : 'Condiciones generales de servicio de Magnishow. Todas vienen marcadas; desmarca solo las que no apliquen.';
   $('clauses').style.opacity = veDoc ? '.35' : ''; $('clauses').style.pointerEvents = veDoc ? 'none' : '';
   S.sketch = S.renders.length ? null : sketchSvg(S.data, theme());
   extraReview = [];
   if(!S.renders.length && !S.sketch) addReview({tipo:'Falta', texto:'No hay elementos para dibujar el bosquejo: sube un render.'});
-  renderPages();
+  renderPages(); renderVersiones();
   status(`Propuesta lista: ${parsed.groups.reduce((a,g)=>a+g.items.length,0)} rubros leídos. Revisa las alertas antes de descargar.`);
 };
 
@@ -1325,6 +1379,7 @@ function pageCover(d, c, t){
   const facts = [
     ['Recinto', d.recinto], ['Montaje', d.montaje?.fecha_corta], ['Evento', d.evento_fecha?.fecha_corta ? d.evento_fecha.fecha_corta + (d.evento_fecha.dias? ` · ${d.evento_fecha.dias} ${d.evento_fecha.dias==1?'día':'días'}`:'') : null], ['Inversión total', money(c.total)]
   ];
+  const ops = opciones(); if(ops.length > 1) facts[3] = [`${ops.length} opciones, desde`, money(Math.min(...ops.map(o=>compute(o.d).total)))];
   return `<div class="page" style="--pacc:${t.bg};--pink-safe:${t.ink}">
     <div class="cv-top"><img class="giant" src="${uri(svgMono(t.mark))}" alt=""><img class="wm" src="${uri(svgWord(t.mark, t.ink))}" alt="Magnishow">
       <div class="cv-title"><span class="t1">Propuesta</span><span class="t2">${esc(cap(d.servicio||'producción de evento'))}</span></div></div>
@@ -1399,7 +1454,7 @@ function invRows(c){
   });
   return rows;
 }
-function pagesInvestment(d, c, t, n0){
+function pagesInvestment(d, c, t, n0, op = {}){
   const rows = invRows(c), PER = 20, chunks = [];
   for(let i=0;i<rows.length;i+=PER) chunks.push(rows.slice(i,i+PER));
   const last = chunks.length-1;
@@ -1411,32 +1466,72 @@ function pagesInvestment(d, c, t, n0){
   const paying = c.groups.filter(g=>g.subtotal>0);
   const colors = t.bg === '#000000' ? ['#000000', '#5c5c5c', '#9a9a9a', '#c4c4c4', '#e0e0e0'] : [t.bg, '#000000', '#7a7a7a', '#b5b5b5', '#d9d9d9'];
   const dist = c.subtotal>0 ? `<div class="dist"><h4>Distribución de la inversión</h4><div class="barx">${paying.map((g,i)=>`<i style="width:${g.subtotal/c.subtotal*100}%;background:${colors[i%colors.length]}"></i>`).join('')}</div><div class="legend">${paying.map((g,i)=>`<span><s style="background:${colors[i%colors.length]}"></s><b>${esc(g.nombre)}</b> ${money(g.subtotal)} · ${Math.round(g.subtotal/c.subtotal*100)}%</span>`).join('')}</div></div>` : '';
-  const ben = (d.beneficios||[]).length ? `<div class="benef"><h4>Beneficios de contar con Magnishow</h4><ul>${d.beneficios.map(b=>`<li><b>${esc(b.t)}</b><span>${esc(b.x)}</span></li>`).join('')}</ul></div>` : '';
-  const totals = `<div class="totalbox"><span>Inversión total${d.itbms_aplica?` con ${d.impuesto_nombre||'ITBMS'}`:''}</span><b>${money(c.total)}</b></div><p class="paynote"><b>Forma de pago:</b> ${esc(cap(formaPago(c.total)))}</p>${dist}${ben}`;
+  const ben = op.beneficios !== false && (d.beneficios||[]).length ? `<div class="benef"><h4>Beneficios de contar con Magnishow</h4><ul>${d.beneficios.map(b=>`<li><b>${esc(b.t)}</b><span>${esc(b.x)}</span></li>`).join('')}</ul></div>` : '';
+  const totals = `<div class="totalbox"><span>${op.etiqueta ? `${esc(op.etiqueta)} · i` : 'I'}nversión total${d.itbms_aplica?` con ${d.impuesto_nombre||'ITBMS'}`:''}</span><b>${money(c.total)}</b></div><p class="paynote"><b>Forma de pago:</b> ${esc(cap(formaPago(c.total)))}</p>${dist}${ben}`;
   const pages = chunks.map((ch,i)=>`<div class="page" style="--pacc:${t.bg}">${corner(t)}<div class="pad">
-    ${i===0?secHead('Inversión', d.numero_cotizacion?`cotización ${d.numero_cotizacion}`:'detalle de servicios'):secHead('Inversión','continuación')}
+    ${i===0?secHead('Inversión', op.etiqueta ? [op.etiqueta, d.numero_cotizacion?`cotización ${d.numero_cotizacion}`:''].filter(Boolean).join(' · ') : d.numero_cotizacion?`cotización ${d.numero_cotizacion}`:'detalle de servicios'):secHead('Inversión', op.etiqueta ? `${op.etiqueta} · continuación` : 'continuación')}
     <table class="inv">${head}<tbody>${ch.join('')}${i===last&&!needSplitTotals?sums:''}</tbody></table>
     ${i===last&&!needSplitTotals?totals:''}
   </div>${foot(n0+i,d,t)}</div>`);
-  if(needSplitTotals) pages.push(`<div class="page" style="--pacc:${t.bg}">${corner(t)}<div class="pad">${secHead('Inversión','resumen')}<table class="inv"><tbody>${sums}</tbody></table>${totals}</div>${foot(n0+pages.length,d,t)}</div>`);
+  if(needSplitTotals) pages.push(`<div class="page" style="--pacc:${t.bg}">${corner(t)}<div class="pad">${secHead('Inversión', op.etiqueta ? `${op.etiqueta} · resumen` : 'resumen')}<table class="inv"><tbody>${sums}</tbody></table>${totals}</div>${foot(n0+pages.length,d,t)}</div>`);
   return pages;
+}
+// Página que compara las opciones: total de cada una, rubros lado a lado y qué cambia entre ellas
+function pageCompare(ops, t, n){
+  const d0 = ops[0].d, cs = ops.map(o=>compute(o.d)), k = x => norm(x).replace(/s\b/g, '');
+  const cards = ops.map((o,i)=>{
+    const dif = i ? cs[i].total - cs[0].total : 0;
+    return `<div class="opcard"><h3>${esc(o.nombre)}</h3><b>${money(cs[i].total)}</b><small>${[o.d.itbms_aplica ? `con ${o.d.impuesto_nombre||'ITBMS'}` : '', o.d.numero_cotizacion ? `cotización ${o.d.numero_cotizacion}` : ''].filter(Boolean).join(' · ')}</small>
+      <p>${esc(cs[i].groups.map(g=>g.nombre).join(' · '))}${i && Math.abs(dif) >= 0.01 ? `<br><b style="font:600 11.5px/1.45 var(--f-text);display:inline">${dif > 0 ? '+' : '−'}${money(Math.abs(dif))} frente a ${esc(ops[0].nombre)}</b>` : ''}</p></div>`;
+  }).join('');
+  // rubros lado a lado (unión de los grupos de todas las opciones)
+  const claves = [];
+  cs.forEach(c=>c.groups.forEach(g=>{ if(!claves.some(x=>x.k === k(g.nombre))) claves.push({ k:k(g.nombre), nombre:g.nombre }); }));
+  const celda = (c, key) => { const g = c.groups.find(g=>k(g.nombre) === key); return !g ? '<td class="no">No incluye</td>' : `<td class="r">${g.cortesia ? 'Cortesía' : money(g.subtotal)}</td>`; };
+  const filas = claves.map(x=>`<tr><td><b>${esc(x.nombre)}</b></td>${cs.map(c=>celda(c, x.k)).join('')}</tr>`).join('');
+  const imp = ops.map(o=>o.d.impuesto_nombre||'ITBMS').find(Boolean);
+  const sums = `<tr class="sum first"><td>Subtotal</td>${cs.map(c=>`<td class="r">${money(c.subtotal)}</td>`).join('')}</tr>`
+    + (cs.some(c=>c.descuento) ? `<tr class="sum"><td>Descuento</td>${cs.map(c=>`<td class="r">${c.descuento ? '−'+money(c.descuento) : '—'}</td>`).join('')}</tr>` : '')
+    + `<tr class="sum"><td>${esc(imp)}</td>${cs.map(c=>`<td class="r">${money(c.itbms)}</td>`).join('')}</tr>`
+    + `<tr class="tot"><td>Inversión total</td>${cs.map(c=>`<td class="r">${money(c.total)}</td>`).join('')}</tr>`;
+  // qué cambia: ítems que solo están en una opción y cantidades distintas
+  const items = cs.map(c=>{ const m = new Map(); c.groups.forEach(g=>g.items.forEach(it=>{ const key = k(it.concepto); if(key && !m.has(key)) m.set(key, it); })); return m; });
+  const lista = (arr, max = 8) => arr.length > max ? arr.slice(0, max).join(', ') + ` y ${arr.length - max} más` : arr.join(', ');
+  const difs = [];
+  items.forEach((m,i)=>{
+    const solo = [...m.entries()].filter(([key])=>items.every((o,j)=>j === i || !o.has(key))).map(([,it])=>[it.cantidad, it.concepto].filter(Boolean).join(' '));
+    if(solo.length) difs.push(`<li><b>Solo en ${esc(ops[i].nombre)}:</b> ${esc(lista(solo))}.</li>`);
+  });
+  const cant = [...items[0].entries()].filter(([key, it])=>items.every(o=>o.has(key)) && items.some(o=>String(o.get(key).cantidad||'') !== String(it.cantidad||'')))
+    .map(([key, it])=>`${it.concepto} (${items.map(o=>o.get(key).cantidad || '—').join(' / ')})`);
+  if(cant.length) difs.push(`<li><b>Cambia la cantidad:</b> ${esc(lista(cant))}, en el orden ${esc(ops.map(o=>o.nombre).join(' / '))}.</li>`);
+  if(!difs.length) difs.push(`<li>Las opciones tienen los mismos equipos; cambian los montos.</li>`);
+  return `<div class="page" style="--pacc:${t.bg}">${corner(t)}<div class="pad">
+    ${secHead('Opciones', 'compara y elige la que mejor se ajusta')}
+    <div class="opcards" style="grid-template-columns:repeat(${ops.length},1fr)">${cards}</div>
+    <table class="inv comp"><thead><tr><th>Rubro</th>${ops.map(o=>`<th class="r">${esc(o.nombre)}</th>`).join('')}</tr></thead><tbody>${filas}${sums}</tbody></table>
+    <div class="cond" style="margin-top:22px"><h4>Qué cambia entre las opciones</h4></div>
+    <ul class="difs">${difs.join('')}</ul>
+    <p class="rcap" style="margin-top:16px">El detalle de cada opción está en las páginas de Inversión que siguen. Al confirmar, marca la opción elegida en la página de firma.</p>
+  </div>${foot(n,d0,t)}</div>`;
 }
 // Forma de pago elegida en el formulario (por defecto, 100 % por adelantado)
 function formaPago(total){
   const op = document.querySelector('input[name="pago"]:checked')?.value || 'adelantado';
+  if(op === 'abono' && total == null) return 'abono del 50 % para reservar la fecha y el 50 % restante antes del inicio del evento.';
   if(op === 'abono'){ const mitad = Math.round(total*50)/100; return `abono del 50 % (${money(mitad)}) para reservar la fecha y el 50 % restante (${money(total - mitad)}) antes del inicio del evento.`; }
   if(op === 'credito'){ const n = Math.max(1, Math.round(+$('pagoDias').value || 30)); return `crédito a ${n} ${n === 1 ? 'día' : 'días'} a partir de la fecha de la factura.`; }
   if(op === 'otra'){ const x = $('pagoTexto').value.trim().replace(/\s+/g, ' '); if(x) return x.charAt(0).toLowerCase() + x.slice(1) + (/[.!?]$/.test(x) ? '' : '.'); }
   return '100 % por adelantado, al confirmar la propuesta.';
 }
 function clauseList(d){
-  const cliente = d.cliente || 'el cliente';
-  const total = money(compute(d).total);
+  const cliente = d.cliente || 'el cliente', ops = opciones(), multi = ops.length > 1;
+  const total = multi ? ops.map(o=>`${money(compute(o.d).total)} (${o.nombre})`).join(ops.length > 2 ? ', ' : ' o ').replace(/, ([^,]*)$/, ' o $1') + ', según la opción elegida' : money(compute(d).total);
   const list = d.condiciones_doc ? d.condiciones_doc.map(c=>({...c}))
     : d.pais === 'VE' ? []
     : DEFAULT_CLAUSES.filter((_,i)=>S.clauses.has(i)).map(c=>({t:c.t, x:c.x.replace('{cliente}', cliente).replace('{total}', total)}));
   const pago = list.findIndex(c=>c.t==='Pago');
-  if(pago >= 0) list[pago].x += ` Forma de pago: ${formaPago(compute(d).total)}`;
+  if(pago >= 0) list[pago].x += ` Forma de pago: ${formaPago(multi ? null : compute(d).total)}`;
   const extra = $('customClauses').value.split('\n').map(s=>s.trim()).filter(Boolean).map(x=>({t:'', x}));
   if(d.ajuste_alcance) extra.push({t:'Consideraciones', x:d.ajuste_alcance});
   if(pago>=0) list.splice(pago, 0, ...extra); else list.push(...extra);
@@ -1465,6 +1560,7 @@ function pageClosing(d, c, t, n){
     ${cal?`<div class="cond"><h4>Calendario</h4><table class="cal"><tbody>${cal}</tbody></table></div>`:''}
     <div class="cond"><h4>Para avanzar necesitamos</h4></div>
     <ol class="needs">${needs}</ol>
+    ${(ops => ops.length > 1 ? `<div class="eleccion"><b>Opción elegida:</b>${ops.map(o=>`<span><i></i>${esc(o.nombre)} · ${money(compute(o.d).total)}</span>`).join('')}</div>` : '')(opciones())}
     ${(()=>{ const fn = $('fFirmaNombre').value.trim(), fc = $('fFirmaCargo').value.trim() || 'Representante legal', rl = /^representante legal$/i.test(fc);   // quien firma por el cliente
       const arriba = fn ? `<b>${esc(fn)}</b>` : rl ? 'Firma del representante legal' : 'Firma autorizada';
       const abajo = fn || !rl ? [fc, d.cliente || 'Cliente'] : [d.cliente || 'Cliente'];
@@ -1484,15 +1580,19 @@ function renderPages(){
   const html = [pageCover(d,c,t)];
   html.push(pageSolution(d,c,t,2));
   const gal = pagesGallery(d,t,3); html.push(...gal);
-  const inv = pagesInvestment(d,c,t,3+gal.length); html.push(...inv);
-  const cond = pagesConditions(d,c,t,3+gal.length+inv.length); html.push(...cond);
-  html.push(pageClosing(d,c,t,3+gal.length+inv.length+cond.length));
+  const ops = opciones(), multi = ops.length > 1;
+  let n = 3 + gal.length;
+  if(multi){ html.push(pageCompare(ops, t, n)); n++; }
+  ops.forEach((o,i)=>{ const inv = multi ? pagesInvestment(o.d, compute(o.d), t, n, { etiqueta:o.nombre, beneficios: i === ops.length-1 }) : pagesInvestment(d,c,t,n); html.push(...inv); n += inv.length; });
+  const cond = pagesConditions(d,c,t,n); html.push(...cond); n += cond.length;
+  html.push(pageClosing(d,c,t,n));
   $('pages').innerHTML = html.map(h=>`<div class="pagewrap">${h}</div>`).join('');
   $('pages').querySelectorAll('.page').forEach(p=>{
     p.querySelectorAll('h1,h2,.sub,p,li,td,b,span,.t1,.t2,.line').forEach(el=>{ if(!el.querySelector('img,table')) el.setAttribute('contenteditable','true'); });
   });
   $('empty').hidden = true; $('toolbar').hidden = false;
-  const rev = [...c.checks.filter(x=>!(d.revision||[]).some(r=>r.texto.startsWith('Los rubros'))), ...(d.revision||[]), ...extraReview];
+  const rev = [...c.checks.filter(x=>!(d.revision||[]).some(r=>r.texto.startsWith('Los rubros'))), ...(d.revision||[]), ...extraReview,
+    ...ops.slice(1).flatMap(o=>compute(o.d).checks.map(r=>({ ...r, texto: `${o.nombre}: ${r.texto}` })))];
   $('review').hidden = !rev.length;
   $('reviewList').innerHTML = rev.map(r=>`<li><b>${esc(r.tipo)}</b><span>${esc(r.texto)}</span></li>`).join('');
   ajustaPaginas();
@@ -1573,6 +1673,7 @@ const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice
 function estadoActual(){
   return {
     exec: S.exec, quoteText: S.quoteText, quoteName: S.quoteName, quotePaste: $('quotePaste').value,
+    versiones: S.versiones.map(v=>({ ...v })), titulo1: S.titulo1,
     form: { cliente:$('fCliente').value, evento:$('fEvento').value, recinto:$('fRecinto').value, fecha:$('fFecha').value, context:$('context').value, firmaNombre:$('fFirmaNombre').value, firmaCargo:$('fFirmaCargo').value },
     desglose: !!S.desglose, clauses: [...S.clauses], customClauses: $('customClauses').value,
     pago: document.querySelector('input[name="pago"]:checked')?.value || 'adelantado', pagoDias: $('pagoDias').value, pagoTexto: $('pagoTexto').value
@@ -1611,6 +1712,7 @@ function aplicaEstado(e){
   $('quoteChip').innerHTML = S.quoteName ? `<div class="filechip"><span>${esc(S.quoteName)}</span><button type="button" id="rmQuote">Quitar</button></div>` : '';
   if($('rmQuote')) $('rmQuote').onclick = ()=>{ S.quoteText=''; S.quoteName=''; $('quoteChip').innerHTML=''; };
   $('quotePaste').value = e.quotePaste || '';
+  S.versiones = Array.isArray(e.versiones) ? e.versiones.slice(0, MAX_VERSIONES) : []; S.titulo1 = e.titulo1 || 'Opción 1'; renderVersiones();
   const fm = e.form || {}; $('fCliente').value = fm.cliente || ''; $('fEvento').value = fm.evento || ''; $('fRecinto').value = fm.recinto || ''; $('fFecha').value = fm.fecha || ''; $('context').value = fm.context || ''; $('fFirmaNombre').value = fm.firmaNombre || ''; $('fFirmaCargo').value = fm.firmaCargo || 'Representante legal';
   S.desglose = !!e.desglose; $('desglose').checked = S.desglose;
   S.clauses = new Set(Array.isArray(e.clauses) ? e.clauses : DEFAULT_CLAUSES.map((_,i)=>i)); renderClauses();
